@@ -103,7 +103,7 @@ the team. You write little product code — your output is alignment.
 4. ~~`feat/task-4-problem-studio` — full problem brief + guided Studio + Hint Pills~~ → merged to `main` (167950a); local-data smoke remains blocked
 5. ~~`feat/task-5-ai-diagram` — Bedrock Converse diagram endpoint + lazy Mermaid preview~~ → merged to `main` (b09e149); live Bedrock smoke remains blocked
 6. ~~`feat/task-6-publish-solutions` — validated solution publication + confirmation route~~ → merged to `main` (0a89d2e); real persistence smoke remains blocked
-7. `feat/task-7-gallery-detail` — public gallery + reloadable detail + demo blueprints (QA approved; real read smoke blocked)
+7. ~~`feat/task-7-gallery-detail` — public gallery + reloadable detail + demo blueprints~~ → merged to `main` (5b72a2f); real read smoke remains blocked
 8. (next) Task 8 — public feedback + endorsement
 
 > **Repo note (devops):** This workspace lives under OneDrive, which locks folders during
