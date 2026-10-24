@@ -3,7 +3,7 @@ import { Link, Route, Routes } from "react-router-dom";
 import { HealthBadge } from "./components/HealthBadge";
 import { OnboardingModal } from "./components/OnboardingModal";
 import { HubPage } from "./pages/HubPage";
-import { ProblemRoutePlaceholder } from "./pages/ProblemRoutePlaceholder";
+import { ProblemPage } from "./pages/ProblemPage";
 import { clearSession, getSession, type Session } from "./session";
 import "./App.css";
 
@@ -48,10 +48,7 @@ export default function App() {
       <main className="app__main" aria-hidden={!hasSession}>
         <Routes>
           <Route path="/" element={session ? <HubPage session={session} /> : <LandingPage />} />
-          <Route
-            path="/problems/:id"
-            element={session ? <ProblemRoutePlaceholder /> : <LandingPage />}
-          />
+          <Route path="/problems/:id" element={session ? <ProblemPage /> : <LandingPage />} />
         </Routes>
       </main>
 

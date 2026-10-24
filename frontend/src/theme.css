@@ -33,6 +33,8 @@
   --maxw: 1100px;
   --modal-maxw: 480px;
   --card-minw: 240px;
+  --studio-column-minw: 320px;
+  --studio-field-minh: 136px;
 }
 
 * {

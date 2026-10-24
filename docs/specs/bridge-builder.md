@@ -201,7 +201,9 @@ NOTES:    If author.role == "pro", set the solution's endorsedByPro = true.
 - [x] (frontend) Onboarding modal + Hub dashboard consuming `GET /problems`. Stores a local
       Student/Industry Pro demo identity and routes problem cards to the Task 4 destination.
       **(Task 3: frontend tests pass; real local-data smoke pending)**
-- [ ] (frontend) Problem page + Studio skeleton with Hint Pills.
+- [x] (frontend) Problem page + Studio skeleton with Hint Pills. Consumes `GET /problems/{id}`
+      and leaves a truthful Task 5 diagram-generation placeholder. **(Task 4: frontend tests
+      pass; real local-data smoke pending)**
 - [ ] (backend+frontend) `POST /ai/diagram` (Bedrock) + Studio render.
 - [ ] (backend+frontend) `POST /solutions` + publish action.
 - [ ] (backend+frontend) gallery + detail (`GET /problems/{id}/solutions`, `GET /solutions/{id}`).
@@ -244,3 +246,8 @@ NOTES:    If author.role == "pro", set the solution's endorsedByPro = true.
   summary shape, selects its weekly hero by `isWeekly`, and gives loading, empty, and retryable
   error states equal treatment. Problem cards route to a deliberate Task 4 placeholder rather
   than a broken URL.
+- _2026-10-24_ (Task 4 implemented) — The detail page consumes only the published
+  `GET /problems/{id}` shape. Hint Pill text appends to the focused guided-spec field, preserving
+  creative control and providing an immediate nudge without a new API contract. The preview pane
+  does not simulate a diagram or offer a no-op AI action; Task 5 owns the on-demand Bedrock +
+  Mermaid integration.

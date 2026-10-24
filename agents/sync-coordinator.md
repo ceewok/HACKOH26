@@ -57,12 +57,17 @@ the team. You write little product code — your output is alignment.
   cards to the Task 4 problem destination. Seven frontend browser tests cover onboarding,
   persistence, data states, retry, and navigation. QA review is approved. Real populated-Hub
   smoke remains coupled to the Docker-blocked Task 2 local data path.
+- **Task 4 (IMPLEMENTED; local-data smoke pending):** `/problems/:id` now fetches the complete
+  brief through `GET /problems/{id}`, renders description, constraints, and an accessible
+  guided Studio. Hint Pills append to the active spec field. The diagram pane accurately says
+  Bedrock/Mermaid generation arrives in Task 5; it makes no AI request. Four detail-page tests
+  cover success, loading, retry, empty arrays, and pill insertion. QA review is approved.
 
 ### Active contracts
 | Contract | Owner | Consumer | Status | Spec ref |
 |----------|-------|----------|--------|----------|
 | `GET /health` | backend-architect | frontend, qa | DONE (live locally) | spec §4 |
-| `GET /problems`, `GET /problems/{id}` | backend-architect | frontend | frontend consumes list; Hub tests pass; local-Dynamo smoke pending | spec §4 |
+| `GET /problems`, `GET /problems/{id}` | backend-architect | frontend | Hub + detail page consume contracts; local-Dynamo smoke pending | spec §4 |
 | `POST /ai/diagram` | backend-architect | frontend | defined (Task 5) | spec §4 |
 | `POST /solutions` | backend-architect | frontend | defined (Task 6) | spec §4 |
 | `GET /problems/{id}/solutions`, `GET /solutions/{id}` | backend-architect | frontend | defined (Task 7) | spec §4 |
@@ -78,7 +83,8 @@ the team. You write little product code — your output is alignment.
 1. ~~`feat/task-1-skeleton` — repo scaffold + spec + health check~~ → merged to `main` (d89694f)
 2. ~~`feat/task-2-problems-api` — enriched seed catalog + hardened problem endpoints + tests~~ → merged to `main` (0fc4e45); local-Dynamo smoke remains blocked
 3. ~~`feat/task-3-onboarding-hub` — role onboarding + persisted demo identity + Hub dashboard~~ → merged to `main` (c852b5d); local-data smoke remains blocked
-4. (next) Task 4 — problem page + Studio skeleton with Hint Pills
+4. `feat/task-4-problem-studio` — full problem brief + guided Studio + Hint Pills (QA approved; local-data smoke blocked)
+5. (next) Task 5 — Bedrock diagram generation + Mermaid render
 
 > **Repo note (devops):** This workspace lives under OneDrive, which locks folders during
 > Git's working-tree swaps and can hang an interactive branch `checkout`. Integrate by
@@ -148,4 +154,20 @@ MOCK:     no production mock. Tests mock api.listProblems() only at the establis
 NOTES:    The Hub selects the weekly hero using isWeekly rather than relying on list position,
           renders nonweekly entries as persistent cards, and routes to /problems/:id. Task 4
           replaces the deliberate placeholder at that route with problem detail + Studio.
+```
+
+
+### Task 4 — Problem detail + guided Studio
+
+```text
+NEEDS:    GET /problems/{id}
+SHAPE:    200 { id, title, hook, description, constraints: string[], hintPills: string[], isWeekly }
+          400/404/500 { error: { code: string, message: string } }
+BLOCKING: no — the detail route has loading and retry/error states. A populated local route still
+          needs the Docker-blocked Task 2 DynamoDB seed/API path.
+MOCK:     no production mock. Detail-page tests mock api.getProblem() only at the src/api.ts seam.
+NOTES:    Studio state uses the future request keys `api`, `processing`, `storage`, and
+          `bottlenecks`. Hint clicks append their label to the active textarea. Task 5 must add
+          the real POST /ai/diagram call and Mermaid renderer; Task 4 deliberately has no AI
+          action or generated-looking diagram.
 ```

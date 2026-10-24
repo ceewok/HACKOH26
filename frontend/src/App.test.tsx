@@ -3,10 +3,10 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, expect, it, vi } from "vitest";
 import App from "./App";
-import { api, type ProblemSummary } from "./api";
+import { api, type Problem, type ProblemSummary } from "./api";
 
 vi.mock("./api", () => ({
-  api: { health: vi.fn(), listProblems: vi.fn() },
+  api: { health: vi.fn(), listProblems: vi.fn(), getProblem: vi.fn() },
 }));
 
 const weeklyProblem: ProblemSummary = {
@@ -16,12 +16,20 @@ const weeklyProblem: ProblemSummary = {
   isWeekly: true,
 };
 
+const weeklyDetail: Problem = {
+  ...weeklyProblem,
+  description: "A complete design brief.",
+  constraints: ["Keep updates near real time."],
+  hintPills: ["DynamoDB"],
+};
+
 beforeEach(() => {
   vi.mocked(api.health).mockResolvedValue({ status: "ok", time: "2026-10-24T00:00:00.000Z" });
   vi.mocked(api.listProblems).mockResolvedValue([weeklyProblem]);
+  vi.mocked(api.getProblem).mockResolvedValue(weeklyDetail);
 });
 
-it("takes a visitor from onboarding to the Hub and then a selected problem route", async () => {
+it("takes a visitor from onboarding to the Hub and then the full selected problem brief", async () => {
   const user = userEvent.setup();
   render(
     <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
@@ -37,5 +45,8 @@ it("takes a visitor from onboarding to the Hub and then a selected problem route
     screen.getByRole("link", { name: "Open Weekly Challenge: Live Industry Office Hours" }),
   );
 
-  expect(await screen.findByRole("heading", { name: "Your Blueprint Studio is next." })).toBeInTheDocument();
+  expect(
+    await screen.findByRole("heading", { name: "Weekly Challenge: Live Industry Office Hours" }),
+  ).toBeInTheDocument();
+  expect(api.getProblem).toHaveBeenCalledWith("weekly-live-office-hours");
 });

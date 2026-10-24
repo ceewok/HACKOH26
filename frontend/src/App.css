@@ -348,3 +348,195 @@
 .problem-placeholder code {
   font-family: var(--font-mono);
 }
+
+
+/* Problem detail + guided Studio */
+.problem-page {
+  display: grid;
+  gap: var(--space-6);
+}
+.problem-page--status {
+  padding: var(--space-6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-large);
+  background: var(--color-surface);
+}
+.problem-page--status h1 {
+  margin-top: 0;
+}
+.problem-page__back {
+  justify-self: start;
+  font-weight: 650;
+}
+.problem-page__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.problem-brief {
+  max-width: var(--maxw);
+  padding: var(--space-6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-large);
+  background: var(--color-surface);
+}
+.problem-brief h1,
+.problem-brief__hook,
+.problem-brief__description {
+  margin-top: 0;
+}
+.problem-brief__hook {
+  margin-bottom: var(--space-4);
+  color: var(--color-accent);
+  font-size: 1.1rem;
+  font-weight: 650;
+}
+.problem-brief__description {
+  margin-bottom: 0;
+  color: var(--color-text-muted);
+}
+
+.problem-constraints {
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-large);
+  background: var(--color-surface);
+}
+.problem-constraints h2 {
+  margin-top: 0;
+}
+.problem-constraints ul {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding-left: var(--space-5);
+}
+.problem-constraints li::marker {
+  color: var(--color-accent);
+}
+.problem-constraints > p {
+  margin-bottom: 0;
+  color: var(--color-text-muted);
+}
+
+.blueprint-studio {
+  display: grid;
+  gap: var(--space-5);
+}
+.blueprint-studio__header {
+  max-width: var(--modal-maxw);
+}
+.blueprint-studio__header h2,
+.blueprint-studio__header p {
+  margin-top: 0;
+}
+.blueprint-studio__header > div > p:last-child {
+  margin-bottom: 0;
+  color: var(--color-text-muted);
+}
+
+.studio-layout {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--studio-column-minw)), 1fr));
+  align-items: start;
+  gap: var(--space-5);
+}
+.studio-form,
+.blueprint-preview {
+  display: grid;
+  gap: var(--space-5);
+  min-width: 0;
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-large);
+  background: var(--color-surface);
+}
+.hint-tray {
+  display: grid;
+  gap: var(--space-3);
+  padding-bottom: var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+}
+.hint-tray h3,
+.hint-tray p {
+  margin: 0;
+}
+.hint-tray > div > p,
+.hint-tray__empty {
+  margin-top: var(--space-1);
+  color: var(--color-text-muted);
+}
+.hint-tray__pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.hint-pill {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  text-align: left;
+}
+.hint-pill:hover,
+.hint-pill[aria-pressed="true"] {
+  border-color: var(--color-accent);
+  background: var(--color-accent-weak);
+}
+
+.studio-fields {
+  display: grid;
+  gap: var(--space-5);
+}
+.studio-field {
+  display: grid;
+  gap: var(--space-2);
+}
+.studio-field__label {
+  font-weight: 700;
+}
+.studio-field__prompt {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+.studio-field textarea {
+  width: 100%;
+  min-height: var(--studio-field-minh);
+  resize: vertical;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+.studio-field textarea:focus {
+  border-color: var(--color-accent);
+}
+
+.blueprint-preview {
+  position: sticky;
+  top: var(--space-5);
+}
+.blueprint-preview h2,
+.blueprint-preview > p {
+  margin: 0;
+}
+.blueprint-preview__placeholder {
+  display: grid;
+  place-items: start;
+  min-height: var(--studio-field-minh);
+  padding: var(--space-5);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface-2);
+}
+.blueprint-preview__placeholder h3,
+.blueprint-preview__placeholder p {
+  margin-top: 0;
+}
+.blueprint-preview__placeholder p {
+  margin-bottom: 0;
+  color: var(--color-text-muted);
+}
