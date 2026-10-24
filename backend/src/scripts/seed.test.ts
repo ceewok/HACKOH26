@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { loadSeedProblems, seedProblems, syncSeedCatalog, validateCatalog } from "./seed.js";
-import type { Problem } from "../types.js";
+import { loadSeedProblems, loadSeedSolutions, seedProblems, seedSolutions, syncSeedCatalog, validateCatalog } from "./seed.js";
+import type { Problem, Solution } from "../types.js";
 
 test("the seed catalog has one weekly challenge and six persistent problems", async () => {
   const problems = await loadSeedProblems();
@@ -100,4 +100,30 @@ test("replacing the weekly challenge retires the old seeded record", async () =>
   assert.equal(table.size, initial.length);
   assert.equal([...table.values()].filter((problem) => problem.isWeekly).length, 1);
   assert.equal(table.get(replacement.id)?.title, replacement.title);
+});
+
+test("the seed gallery includes public student and industry blueprints", async () => {
+  const solutions = await loadSeedSolutions();
+
+  assert.equal(solutions.length, 3);
+  assert.ok(solutions.some((solution) => solution.author.role === "student"));
+  assert.ok(solutions.some((solution) => solution.author.role === "pro"));
+  assert.equal(new Set(solutions.map((solution) => solution.id)).size, solutions.length);
+  assert.ok(solutions.every((solution) => solution.mermaid.startsWith("flowchart TD")));
+});
+
+test("re-seeding gallery examples upserts fixed solution ids", async () => {
+  const solutions = await loadSeedSolutions();
+  const table = new Map<string, Solution>();
+
+  await seedSolutions(solutions, async (solution) => {
+    table.set(solution.id, solution);
+  });
+  const revised = { ...solutions[0], spec: { ...solutions[0].spec, api: "Revised API" } };
+  await seedSolutions([revised], async (solution) => {
+    table.set(solution.id, solution);
+  });
+
+  assert.equal(table.size, solutions.length);
+  assert.equal(table.get(revised.id)?.spec.api, "Revised API");
 });

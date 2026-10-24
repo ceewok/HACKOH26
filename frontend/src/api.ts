@@ -91,6 +91,23 @@ export interface Solution {
   createdAt: string;
 }
 
+export interface SolutionWithTweakCount extends Solution {
+  tweakCount: number;
+}
+
+export interface Feedback {
+  id: string;
+  solutionId: string;
+  author: Author;
+  text: string;
+  createdAt: string;
+}
+
+export interface SolutionDetail extends Solution {
+  feedback: Feedback[];
+  tweaks: Solution[];
+}
+
 export interface PublishSolutionInput {
   problemId: string;
   author: Author;
@@ -118,4 +135,9 @@ export const api = {
       method: "POST",
       body: JSON.stringify(input),
     }),
+  listSolutions: (problemId: string, role: "all" | "student" | "pro" = "all") =>
+    request<SolutionWithTweakCount[]>(
+      `/problems/${encodeURIComponent(problemId)}/solutions?role=${encodeURIComponent(role)}`,
+    ),
+  getSolution: (id: string) => request<SolutionDetail>(`/solutions/${encodeURIComponent(id)}`),
 };

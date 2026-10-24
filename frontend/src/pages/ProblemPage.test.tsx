@@ -14,7 +14,14 @@ vi.mock("../api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../api")>();
   return {
     ...actual,
-    api: { ...actual.api, getProblem: vi.fn(), generateDiagram: vi.fn(), publishSolution: vi.fn() },
+    api: {
+      ...actual.api,
+      getProblem: vi.fn(),
+      generateDiagram: vi.fn(),
+      publishSolution: vi.fn(),
+      listSolutions: vi.fn(),
+      getSolution: vi.fn(),
+    },
   };
 });
 
@@ -50,6 +57,8 @@ beforeEach(() => {
   vi.mocked(api.getProblem).mockReset();
   vi.mocked(api.generateDiagram).mockReset();
   vi.mocked(api.publishSolution).mockReset();
+  vi.mocked(api.listSolutions).mockReset();
+  vi.mocked(api.listSolutions).mockResolvedValue([]);
   vi.mocked(mermaid.render).mockReset();
 });
 

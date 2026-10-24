@@ -66,6 +66,13 @@ challenge). The JSON file is authoritative for the seeded catalog: re-seeding up
 whose ids remain and retires existing seeded problems omitted from the file. Do not remove an
 entry unless it should disappear from the Hub.
 
+### Demo blueprints
+
+`backend/seed/solutions.json` provides public student and industry example blueprints so the
+first gallery is not empty. `npm run seed` upserts these fixed solution IDs; it does not remove
+solutions published by users. Keep every example's Mermaid source within the documented
+flowchart subset.
+
 ## Environment
 
 Copy `.env.example` to `.env` and fill in as needed. `.env` is gitignored — never commit

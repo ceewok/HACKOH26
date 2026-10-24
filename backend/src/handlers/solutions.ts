@@ -5,15 +5,32 @@
 //   POST /solutions/{id}/feedback           (Task 8)
 
 import { randomUUID } from "node:crypto";
-import { errors, HttpError, created, type ApiRequest, type ApiResponse } from "../http.js";
+import { errors, HttpError, created, ok, type ApiRequest, type ApiResponse } from "../http.js";
 import { normalizeMermaid } from "../mermaid.js";
-import { getProblem, putSolution } from "../repo.js";
+import {
+  getProblem,
+  getSolutionById,
+  listFeedbackForSolution,
+  listSolutionsForProblem,
+  putSolution,
+} from "../repo.js";
 import { route } from "../router.js";
-import type { Author, Problem, Solution, SolutionSpec } from "../types.js";
+import type {
+  Author,
+  Feedback,
+  Problem,
+  Solution,
+  SolutionDetail,
+  SolutionSpec,
+  SolutionWithTweakCount,
+} from "../types.js";
 
-export interface SolutionPublisher {
+export interface SolutionRepository {
   getProblem(id: string): Promise<Problem | null>;
   putSolution(solution: Solution): Promise<void>;
+  listSolutionsForProblem(problemId: string): Promise<Solution[]>;
+  getSolutionById(id: string): Promise<Solution | null>;
+  listFeedbackForSolution(solutionId: string): Promise<Feedback[]>;
 }
 
 interface PublishRequest {
@@ -24,6 +41,8 @@ interface PublishRequest {
   parentSolutionId?: string;
   tweakNote?: string;
 }
+
+type GalleryRole = "all" | "student" | "pro";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -78,14 +97,31 @@ export function parsePublishRequest(body: unknown): PublishRequest {
   };
 }
 
-function storageFailure(error: unknown): never {
+function publishFailure(error: unknown): never {
   if (error instanceof HttpError) throw error;
   throw errors.internal("Unable to publish solution. Try again shortly.");
 }
 
-/** Injectable publish handler for tests; production uses the DynamoDB repository. */
-export function createSolutionHandlers(publisher: SolutionPublisher): {
+function readFailure(error: unknown): never {
+  if (error instanceof HttpError) throw error;
+  throw errors.internal("Unable to load solutions. Try again shortly.");
+}
+
+function sortNewest<T extends { createdAt: string }>(items: T[]): T[] {
+  return [...items].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+function parseGalleryRole(value: string | undefined): GalleryRole {
+  if (value === undefined || value === "all") return "all";
+  if (value === "student" || value === "pro") return value;
+  throw errors.badRequest("role must be all, student, or pro.");
+}
+
+/** Injectable handlers for tests; production uses the DynamoDB repository. */
+export function createSolutionHandlers(repository: SolutionRepository): {
   publish: (request: ApiRequest) => Promise<ApiResponse>;
+  list: (request: ApiRequest) => Promise<ApiResponse>;
+  detail: (request: ApiRequest) => Promise<ApiResponse>;
 } {
   return {
     publish: async (request) => {
@@ -93,9 +129,9 @@ export function createSolutionHandlers(publisher: SolutionPublisher): {
 
       let problem: Problem | null;
       try {
-        problem = await publisher.getProblem(publishRequest.problemId);
+        problem = await repository.getProblem(publishRequest.problemId);
       } catch (error) {
-        return storageFailure(error);
+        return publishFailure(error);
       }
       if (!problem) throw errors.notFound(`No problem with id ${publishRequest.problemId}`);
 
@@ -112,22 +148,85 @@ export function createSolutionHandlers(publisher: SolutionPublisher): {
       };
 
       try {
-        await publisher.putSolution(solution);
+        await repository.putSolution(solution);
       } catch (error) {
-        return storageFailure(error);
+        return publishFailure(error);
       }
       return created({ solution });
+    },
+
+    list: async (request) => {
+      const role = parseGalleryRole(request.query.role);
+      const problemId = requiredText(request.params.id, "problemId");
+
+      let solutions: Solution[];
+      try {
+        solutions = await repository.listSolutionsForProblem(problemId);
+      } catch (error) {
+        return readFailure(error);
+      }
+
+      const tweakCounts = new Map<string, number>();
+      for (const solution of solutions) {
+        if (solution.parentSolutionId) {
+          tweakCounts.set(solution.parentSolutionId, (tweakCounts.get(solution.parentSolutionId) ?? 0) + 1);
+        }
+      }
+
+      const gallery = solutions
+        .filter((solution) => role === "all" || solution.author.role === role)
+        .map<SolutionWithTweakCount>((solution) => ({
+          ...solution,
+          tweakCount: tweakCounts.get(solution.id) ?? 0,
+        }));
+      return ok(sortNewest(gallery));
+    },
+
+    detail: async (request) => {
+      const solutionId = requiredText(request.params.id, "solutionId");
+
+      let solution: Solution | null;
+      try {
+        solution = await repository.getSolutionById(solutionId);
+      } catch (error) {
+        return readFailure(error);
+      }
+      if (!solution) throw errors.notFound(`No solution with id ${solutionId}`);
+
+      let feedback: Feedback[];
+      let problemSolutions: Solution[];
+      try {
+        [feedback, problemSolutions] = await Promise.all([
+          repository.listFeedbackForSolution(solution.id),
+          repository.listSolutionsForProblem(solution.problemId),
+        ]);
+      } catch (error) {
+        return readFailure(error);
+      }
+
+      const detail: SolutionDetail = {
+        ...solution,
+        feedback,
+        tweaks: sortNewest(problemSolutions.filter((candidate) => candidate.parentSolutionId === solution.id)),
+      };
+      return ok(detail);
     },
   };
 }
 
-const handlers = createSolutionHandlers({ getProblem, putSolution });
+const handlers = createSolutionHandlers({
+  getProblem,
+  putSolution,
+  listSolutionsForProblem,
+  getSolutionById,
+  listFeedbackForSolution,
+});
 route("POST", "/solutions", handlers.publish);
+route("GET", "/problems/:id/solutions", handlers.list);
+route("GET", "/solutions/:id", handlers.detail);
 
 const notImplemented = (what: string) => () => {
   throw new HttpError(501, "not_implemented", `${what} is not implemented yet`);
 };
 
-route("GET", "/problems/:id/solutions", notImplemented("GET /problems/:id/solutions"));
-route("GET", "/solutions/:id", notImplemented("GET /solutions/:id"));
 route("POST", "/solutions/:id/feedback", notImplemented("POST /solutions/:id/feedback"));

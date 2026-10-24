@@ -6,7 +6,7 @@ import App from "./App";
 import { api, type Problem, type ProblemSummary } from "./api";
 
 vi.mock("./api", () => ({
-  api: { health: vi.fn(), listProblems: vi.fn(), getProblem: vi.fn(), generateDiagram: vi.fn(), publishSolution: vi.fn() },
+  api: { health: vi.fn(), listProblems: vi.fn(), getProblem: vi.fn(), generateDiagram: vi.fn(), publishSolution: vi.fn(), listSolutions: vi.fn(), getSolution: vi.fn() },
 }));
 
 const weeklyProblem: ProblemSummary = {
@@ -27,6 +27,7 @@ beforeEach(() => {
   vi.mocked(api.health).mockResolvedValue({ status: "ok", time: "2026-10-24T00:00:00.000Z" });
   vi.mocked(api.listProblems).mockResolvedValue([weeklyProblem]);
   vi.mocked(api.getProblem).mockResolvedValue(weeklyDetail);
+  vi.mocked(api.listSolutions).mockResolvedValue([]);
 });
 
 it("takes a visitor from onboarding to the Hub and then the full selected problem brief", async () => {

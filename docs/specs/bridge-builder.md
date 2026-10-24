@@ -172,7 +172,8 @@ RESPONSE: 200 [ { ...solution, tweakCount: number } ]   // authors public; filte
 ERRORS:   400 on bad role value; 500 on storage failure
 AUTH:     none
 NOTES:    role defaults to "all". tweakCount = number of solutions whose parentSolutionId
-          equals this solution's id.
+          equals this solution's id. Results are newest-first by createdAt. An unknown problem
+          returns 200 [] under the current contract. The demo query has no pagination.
 ```
 
 ```
@@ -180,7 +181,8 @@ GET /solutions/{id}
 RESPONSE: 200 { ...solution, feedback: Feedback[], tweaks: Solution[] }
 ERRORS:   404 if no such solution; 500 on storage failure
 AUTH:     none
-NOTES:    tweaks = child solutions (parentSolutionId == id).
+NOTES:    tweaks = direct child solutions (parentSolutionId == id), newest-first by createdAt.
+          Feedback is returned oldest-first as stored by the repository.
 ```
 
 ```
@@ -214,7 +216,10 @@ NOTES:    If author.role == "pro", set the solution's endorsedByPro = true.
       Solution records after validating author/spec/Mermaid; the Studio routes the immediate 201
       response to a Task 6 confirmation destination. **(Task 6: mocked tests pass; real
       DynamoDB write smoke needs Docker or deployed AWS)**
-- [ ] (backend+frontend) gallery + detail (`GET /problems/{id}/solutions`, `GET /solutions/{id}`).
+- [x] (backend+frontend) gallery + detail (`GET /problems/{id}/solutions`, `GET /solutions/{id}`).
+      Supports public All/Industry Pros/Students filtering, newest-first gallery/tweaks, and
+      reloadable detail with rendered diagram, feedback, and direct tweaks. **(Task 7: mocked
+      tests pass; real DynamoDB read smoke needs Docker or deployed AWS)**
 - [ ] (backend+frontend) feedback + "Endorsed by a Pro" badge.
 - [ ] (frontend+backend) tweak / fork flow.
 - [ ] (qa+devops) end-to-end polish + demo hardening.
@@ -272,3 +277,8 @@ NOTES:    If author.role == "pro", set the solution's endorsedByPro = true.
   solution ID, created time, and initial `endorsedByPro: false`, and confirms the problem exists
   before writing. The post-201 /solutions/:id destination intentionally uses navigation state;
   Task 7 owns the reloadable public detail API and gallery.
+- _2026-10-24_ (Task 7 implemented) — Gallery and direct tweak lists sort newest-first by
+  `createdAt`; feedback retains its existing oldest-first order. The gallery returns 200 [] for
+  unknown problems under the published contract and intentionally omits pagination for the small
+  hackathon dataset. Three static solution examples seed the gallery without replacing user
+  solutions. Task 8 may render feedback but owns writing it.

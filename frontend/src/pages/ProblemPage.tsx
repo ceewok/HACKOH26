@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, ApiClientError, type Author, type Problem } from "../api";
+import { SolutionGallery } from "../components/SolutionGallery";
 import {
   BlueprintStudio,
   emptyBlueprintSpec,
@@ -132,6 +133,8 @@ export function ProblemPage({ author }: ProblemPageProps) {
           <p>No constraints were provided. Define the trade-offs you want to explore.</p>
         )}
       </section>
+
+      <SolutionGallery problemId={problem.id} />
 
       <BlueprintStudio
         hintPills={problem.hintPills}

@@ -74,6 +74,11 @@ the team. You write little product code — your output is alignment.
   successful 201 response to /solutions/:id using navigation state. Twenty-three backend plus
   sixteen frontend tests pass. QA review is approved. A real write needs Docker DynamoDB Local
   or deployed AWS.
+- **Task 7 (IMPLEMENTED; real read smoke pending):** gallery reads the problem partition,
+  computes direct-tweak counts before role filtering, and returns newest-first public cards.
+  Reloadable solution detail renders Mermaid, design notes, feedback, and direct tweaks. Three
+  static examples seed a non-empty demo gallery. Twenty-nine backend plus twenty frontend tests
+  pass. QA review is approved. A real read needs Docker DynamoDB Local or deployed AWS.
 
 ### Active contracts
 | Contract | Owner | Consumer | Status | Spec ref |
@@ -82,7 +87,7 @@ the team. You write little product code — your output is alignment.
 | `GET /problems`, `GET /problems/{id}` | backend-architect | frontend | Hub + detail page consume contracts; local-Dynamo smoke pending | spec §4 |
 | `POST /ai/diagram` | backend-architect | frontend | implemented; mocked tests + no-credential 502 smoke pass; live Bedrock pending | spec §4 |
 | `POST /solutions` | backend-architect | frontend | implemented; UI + handler tests pass; real write smoke pending | spec §4 |
-| `GET /problems/{id}/solutions`, `GET /solutions/{id}` | backend-architect | frontend | defined (Task 7) | spec §4 |
+| `GET /problems/{id}/solutions`, `GET /solutions/{id}` | backend-architect | frontend | implemented; gallery/detail tests pass; real DynamoDB read smoke pending | spec §4 |
 | `POST /solutions/{id}/feedback` | backend-architect | frontend | defined (Task 8) | spec §4 |
 
 ### Blockers
@@ -98,7 +103,8 @@ the team. You write little product code — your output is alignment.
 4. ~~`feat/task-4-problem-studio` — full problem brief + guided Studio + Hint Pills~~ → merged to `main` (167950a); local-data smoke remains blocked
 5. ~~`feat/task-5-ai-diagram` — Bedrock Converse diagram endpoint + lazy Mermaid preview~~ → merged to `main` (b09e149); live Bedrock smoke remains blocked
 6. ~~`feat/task-6-publish-solutions` — validated solution publication + confirmation route~~ → merged to `main` (0a89d2e); real persistence smoke remains blocked
-7. (next) Task 7 — solution gallery + reloadable detail
+7. `feat/task-7-gallery-detail` — public gallery + reloadable detail + demo blueprints (QA approved; real read smoke blocked)
+8. (next) Task 8 — public feedback + endorsement
 
 > **Repo note (devops):** This workspace lives under OneDrive, which locks folders during
 > Git's working-tree swaps and can hang an interactive branch `checkout`. Integrate by
@@ -234,4 +240,30 @@ MOCK:     Tests mock api.publishSolution and Mermaid rendering at their module s
 NOTES:    Publish is disabled until the user has nonblank spec text and a last-good diagram.
           A 201 routes to /solutions/:id with the returned solution in navigation state. Task 7
           owns the reloadable GET /solutions/:id detail, solution gallery, and public discussion.
+```
+
+
+### Task 7 — Solution gallery + reloadable detail
+
+```text
+ENDPOINT: GET /problems/{id}/solutions?role=all|pro|student
+REQUEST:  path id; optional role query (defaults all)
+RESPONSE: 200 [ { ...solution, tweakCount: number } ], newest-first by createdAt
+ERRORS:   400 invalid role; 500 { error: { code: "internal_error", message: "Unable to load solutions. Try again shortly." } }
+NOTES:    Unknown problems return 200 [] under the existing contract. Tweak counts are derived
+          before filtering, so a Pro parent still reports Student-created tweaks in the Pro tab.
+          The hackathon list is intentionally unpaginated.
+
+ENDPOINT: GET /solutions/{id}
+REQUEST:  path id
+RESPONSE: 200 { ...solution, feedback: Feedback[], tweaks: Solution[] }
+ERRORS:   404 unknown solution; 500 generic load error
+NOTES:    Direct tweaks sort newest-first. Feedback retains oldest-first repository order.
+
+NEEDS:    Both GET endpoints above, via api.listSolutions(...) and api.getSolution(...).
+BLOCKING: no for UI/tests; live DynamoDB reads need Docker Local or deployed AWS.
+MOCK:     Gallery/detail tests mock the api seam and Mermaid rendering only.
+NOTES:    `/solutions/:id` now reloads from GET, not navigation state. Task 8 owns feedback
+          submission/endorsement writes; Task 9 owns creating tweaks. Seeded gallery examples
+          live in backend/seed/solutions.json and are upserted by npm run seed.
 ```

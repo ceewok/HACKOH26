@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { MermaidDiagram, renderMermaid } from "./MermaidPreview";
 import { api, ApiClientError, type DiagramSpec } from "../api";
 
 export type BlueprintSpec = DiagramSpec;
@@ -55,55 +56,8 @@ const fields: Array<{ key: BlueprintField; label: string; prompt: string }> = [
   },
 ];
 
-type MermaidApi = typeof import("mermaid").default;
-
-let mermaidPromise: Promise<MermaidApi> | null = null;
-let renderSequence = 0;
-
-async function getMermaid(): Promise<MermaidApi> {
-  if (!mermaidPromise) {
-    mermaidPromise = import("mermaid").then(({ default: mermaid }) => {
-      mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: "dark" });
-      return mermaid;
-    });
-  }
-  return mermaidPromise;
-}
-
-async function renderMermaid(source: string): Promise<string> {
-  const mermaid = await getMermaid();
-  const result = await mermaid.render(`bridge-builder-diagram-${++renderSequence}`, source);
-  return result.svg;
-}
-
 function appendHint(current: string, hint: string): string {
   return current.trim() ? `${current}\n${hint}` : hint;
-}
-
-/** Appends Mermaid-generated SVG without treating model text as HTML. */
-function MermaidDiagram({ svg }: { svg: string }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const parsed = new DOMParser().parseFromString(svg, "image/svg+xml");
-    const diagram = parsed.documentElement;
-    if (diagram.nodeName.toLowerCase() === "parsererror") return;
-
-    container.replaceChildren(diagram);
-  }, [svg]);
-
-  return (
-    <div
-      className="blueprint-preview__diagram"
-      data-testid="mermaid-diagram"
-      ref={containerRef}
-      role="img"
-      aria-label="Generated architecture diagram"
-    />
-  );
 }
 
 /** Guided spec + on-demand Bedrock/Mermaid preview. */
