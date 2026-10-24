@@ -60,8 +60,13 @@ the team. You write little product code — your output is alignment.
 | AWS account + region + Bedrock model access | devops, backend (deploy + `POST /ai/diagram`) | user to confirm AWS creds, region, and that a Claude model is enabled in Bedrock | user / devops | open — local dev proceeds without it |
 
 ### Merge queue
-1. ~~`feat/task-1-skeleton` — repo scaffold + spec + health check~~ → ready to merge to main
+1. ~~`feat/task-1-skeleton` — repo scaffold + spec + health check~~ → merged to `main` (d89694f)
 2. (next) Task 2 — seed data + problems API
+
+> **Repo note (devops):** This workspace lives under OneDrive, which locks folders during
+> Git's working-tree swaps and can hang an interactive branch `checkout`. Integrate by
+> committing on a branch and fast-forwarding `main` (`git branch -f main <branch>`) rather
+> than `git checkout main && git merge`. Keeps main demoable without the lock risk.
 
 ## Role dispatch map (who owns each task)
 
