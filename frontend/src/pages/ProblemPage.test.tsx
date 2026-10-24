@@ -258,3 +258,77 @@ it("shows Publishing and prevents duplicate submissions while the request is pen
   resolvePublish!({ solution: publishedSolution });
   expect(await screen.findByText("Published destination")).toBeInTheDocument();
 });
+
+// --- Task 9: tweak / fork flow ---
+
+const tweakSeed = {
+  parentSolutionId: "parent-solution-9",
+  parentAuthor: "QueueCrafter",
+  spec: { api: "Parent API notes", processing: "Parent processing", storage: "Parent storage", bottlenecks: "Parent bottlenecks" },
+  mermaid: "flowchart TD\nParent --> Child",
+};
+
+function renderTweakPage() {
+  return render(
+    <MemoryRouter
+      future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      initialEntries={[{ pathname: `/problems/${problem.id}`, state: { tweak: tweakSeed } }]}
+    >
+      <Routes>
+        <Route path="/problems/:id" element={<ProblemPage author={{ role: "student", nickname: "Alex" }} />} />
+        <Route path="/solutions/:id" element={<div>Published destination</div>} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+it("pre-fills the Studio from a tweak seed and renders the parent's diagram", async () => {
+  vi.mocked(api.getProblem).mockResolvedValue(problem);
+  vi.mocked(mermaid.render).mockResolvedValue({ svg: svg("parent") } as never);
+  renderTweakPage();
+
+  await screen.findByRole("heading", { name: problem.title });
+  expect(screen.getByText(/Tweaking/)).toHaveTextContent("QueueCrafter");
+  expect(screen.getByRole("textbox", { name: /API & Ingestion/ })).toHaveValue("Parent API notes");
+  expect(screen.getByRole("textbox", { name: /Core Processing/ })).toHaveValue("Parent processing");
+  expect(screen.getByRole("heading", { name: "Tweak Studio" })).toBeInTheDocument();
+  // The parent diagram pre-loads so the tweak is publishable after adding a note.
+  expect(await screen.findByText("parent")).toBeInTheDocument();
+});
+
+it("requires a why-note and threads parentSolutionId + tweakNote through publish", async () => {
+  const user = userEvent.setup();
+  vi.mocked(api.getProblem).mockResolvedValue(problem);
+  vi.mocked(mermaid.render).mockResolvedValue({ svg: svg("parent") } as never);
+  const tweakResult: Solution = {
+    ...publishedSolution,
+    id: "tweak-solution-1",
+    parentSolutionId: tweakSeed.parentSolutionId,
+    tweakNote: "Swapped the queue for streaming.",
+  };
+  vi.mocked(api.publishSolution).mockResolvedValue({ solution: tweakResult });
+  renderTweakPage();
+
+  await screen.findByRole("heading", { name: problem.title });
+  expect(await screen.findByText("parent")).toBeInTheDocument();
+
+  // Without a why-note, publish is blocked.
+  const publishButton = screen.getByRole("button", { name: "Publish Tweak" });
+  expect(publishButton).toBeDisabled();
+
+  await user.type(screen.getByRole("textbox", { name: /Why I tweaked this/ }), "Swapped the queue for streaming.");
+  expect(publishButton).toBeEnabled();
+  await user.click(publishButton);
+
+  await waitFor(() => {
+    expect(api.publishSolution).toHaveBeenCalledWith({
+      problemId: problem.id,
+      author: { role: "student", nickname: "Alex" },
+      spec: tweakSeed.spec,
+      mermaid: tweakSeed.mermaid,
+      parentSolutionId: tweakSeed.parentSolutionId,
+      tweakNote: "Swapped the queue for streaming.",
+    });
+  });
+  expect(await screen.findByText("Published destination")).toBeInTheDocument();
+});

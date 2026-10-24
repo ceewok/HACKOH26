@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api, ApiClientError, type Author, type Problem } from "../api";
 import { SolutionGallery } from "../components/SolutionGallery";
 import {
@@ -7,7 +7,47 @@ import {
   emptyBlueprintSpec,
   type BlueprintSpec,
   type PublishDraft,
+  type TweakContext,
 } from "../components/BlueprintStudio";
+
+/**
+ * Navigation state the solution page passes when a user clicks "Tweak This Design".
+ * It pre-fills the Studio with the parent's spec + diagram and records the parent id.
+ */
+export interface TweakSeed {
+  parentSolutionId: string;
+  parentAuthor: string;
+  spec: BlueprintSpec;
+  mermaid: string;
+}
+
+function readTweakSeed(state: unknown): TweakSeed | null {
+  if (typeof state !== "object" || state === null) return null;
+  const seed = (state as { tweak?: unknown }).tweak;
+  if (typeof seed !== "object" || seed === null) return null;
+  const candidate = seed as Partial<TweakSeed>;
+  if (
+    typeof candidate.parentSolutionId !== "string" ||
+    typeof candidate.parentAuthor !== "string" ||
+    typeof candidate.mermaid !== "string" ||
+    typeof candidate.spec !== "object" ||
+    candidate.spec === null
+  ) {
+    return null;
+  }
+  const spec = candidate.spec as Partial<BlueprintSpec>;
+  return {
+    parentSolutionId: candidate.parentSolutionId,
+    parentAuthor: candidate.parentAuthor,
+    mermaid: candidate.mermaid,
+    spec: {
+      api: typeof spec.api === "string" ? spec.api : "",
+      processing: typeof spec.processing === "string" ? spec.processing : "",
+      storage: typeof spec.storage === "string" ? spec.storage : "",
+      bottlenecks: typeof spec.bottlenecks === "string" ? spec.bottlenecks : "",
+    },
+  };
+}
 
 type ProblemPageState =
   | { kind: "loading" }
@@ -22,11 +62,21 @@ interface ProblemPageProps {
 export function ProblemPage({ author }: ProblemPageProps) {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [tweakSeed] = useState<TweakSeed | null>(() => readTweakSeed(location.state));
   const [state, setState] = useState<ProblemPageState>({ kind: "loading" });
   const [requestVersion, setRequestVersion] = useState(0);
-  const [spec, setSpec] = useState<BlueprintSpec>(emptyBlueprintSpec);
+  const [spec, setSpec] = useState<BlueprintSpec>(() => tweakSeed?.spec ?? emptyBlueprintSpec);
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
+
+  const tweakContext: TweakContext | undefined = tweakSeed
+    ? {
+        parentSolutionId: tweakSeed.parentSolutionId,
+        parentAuthor: tweakSeed.parentAuthor,
+        parentMermaid: tweakSeed.mermaid,
+      }
+    : undefined;
 
   useEffect(() => {
     if (!id) {
@@ -63,6 +113,8 @@ export function ProblemPage({ author }: ProblemPageProps) {
         author,
         spec: draft.spec,
         mermaid: draft.mermaid,
+        ...(tweakSeed ? { parentSolutionId: tweakSeed.parentSolutionId } : {}),
+        ...(draft.tweakNote ? { tweakNote: draft.tweakNote } : {}),
       });
       navigate(`/solutions/${encodeURIComponent(response.solution.id)}`, {
         state: { solution: response.solution },
@@ -119,6 +171,12 @@ export function ProblemPage({ author }: ProblemPageProps) {
         <h1 id="problem-title">{problem.title}</h1>
         <p className="problem-brief__hook">{problem.hook}</p>
         <p className="problem-brief__description">{problem.description}</p>
+        {tweakSeed && (
+          <p className="problem-brief__tweak-banner" role="status">
+            Tweaking <strong>{tweakSeed.parentAuthor}</strong>'s blueprint — the Studio below is
+            pre-filled with their spec and diagram.
+          </p>
+        )}
       </header>
 
       <section className="problem-constraints" aria-labelledby="constraints-title">
@@ -144,6 +202,7 @@ export function ProblemPage({ author }: ProblemPageProps) {
         problemId={problem.id}
         publishError={publishError}
         spec={spec}
+        tweak={tweakContext}
       />
     </article>
   );

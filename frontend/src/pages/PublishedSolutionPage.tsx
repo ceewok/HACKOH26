@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, ApiClientError, type Feedback, type SolutionDetail } from "../api";
 import { MermaidSourcePreview } from "../components/MermaidPreview";
 import { getSession } from "../session";
@@ -12,6 +12,7 @@ type DetailState =
 /** Reloadable public solution detail with public feedback + pro endorsement. */
 export function PublishedSolutionPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [state, setState] = useState<DetailState>({ kind: "loading" });
   const [requestVersion, setRequestVersion] = useState(0);
 
@@ -67,6 +68,21 @@ export function PublishedSolutionPage() {
 
   const { solution } = state;
 
+  // Open the Studio for the parent problem, pre-filled with this solution's spec +
+  // diagram, and carry the parent id so publish threads parentSolutionId + tweakNote.
+  const startTweak = () => {
+    navigate(`/problems/${encodeURIComponent(solution.problemId)}`, {
+      state: {
+        tweak: {
+          parentSolutionId: solution.id,
+          parentAuthor: solution.author.nickname,
+          spec: solution.spec,
+          mermaid: solution.mermaid,
+        },
+      },
+    });
+  };
+
   const applyFeedback = (feedback: Feedback, endorsedByPro: boolean) => {
     setState((current) =>
       current.kind === "ready"
@@ -100,6 +116,16 @@ export function PublishedSolutionPage() {
             {solution.author.role === "pro" ? "Industry Pro" : "Student"}
           </span>
           {solution.endorsedByPro && <span className="solution-badge solution-badge--endorsed">Endorsed by a Pro</span>}
+          {solution.parentSolutionId && (
+            <Link className="solution-badge solution-badge--tweak" to={`/solutions/${encodeURIComponent(solution.parentSolutionId)}`}>
+              Tweak of another design
+            </Link>
+          )}
+        </div>
+        <div className="solution-detail__actions">
+          <button className="button button--primary" onClick={startTweak} type="button">
+            Tweak This Design
+          </button>
         </div>
       </header>
 
@@ -151,7 +177,7 @@ export function PublishedSolutionPage() {
             ))}
           </div>
         ) : (
-          <p>No tweaks yet. Task 9 adds the public fork-and-tweak flow.</p>
+          <p>No tweaks yet. Use "Tweak This Design" to fork this blueprint and start the first one.</p>
         )}
       </section>
     </article>

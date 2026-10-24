@@ -113,6 +113,8 @@ export interface PublishSolutionInput {
   author: Author;
   spec: DiagramSpec;
   mermaid: string;
+  parentSolutionId?: string;
+  tweakNote?: string;
 }
 
 export interface PublishSolutionResponse {

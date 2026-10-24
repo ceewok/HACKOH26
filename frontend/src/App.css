@@ -715,6 +715,29 @@
   background: var(--color-ok);
   color: var(--color-bg);
 }
+.solution-badge--tweak {
+  background: var(--color-accent-weak);
+  color: var(--color-accent);
+  text-decoration: none;
+}
+.solution-badge--tweak:hover {
+  text-decoration: underline;
+}
+.solution-detail__actions {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.problem-brief__tweak-banner {
+  margin-top: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius);
+  background: var(--color-accent-weak);
+  color: var(--color-accent);
+}
+.studio-field--tweak {
+  margin-top: var(--space-3);
+}
 .solution-card__company,
 .solution-card__date,
 .solution-card__tweaks,

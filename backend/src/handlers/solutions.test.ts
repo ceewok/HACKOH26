@@ -98,6 +98,37 @@ test("POST /solutions creates a server-owned public solution", async () => {
   assert.equal(created.mermaid, validBody.mermaid);
 });
 
+test("POST /solutions persists a tweak with parentSolutionId + tweakNote (Task 9)", async () => {
+  const { implementation, written } = handlers();
+  const result = await implementation.publish(
+    request({
+      ...validBody,
+      parentSolutionId: "parent-123",
+      tweakNote: "  Swapped the queue for streaming.  ",
+    }),
+  );
+
+  assert.equal(result.status, 201);
+  const created = (result.body as { solution: Solution }).solution;
+  assert.equal(created, written[0]);
+  assert.equal(created.parentSolutionId, "parent-123");
+  // The note is trimmed by the request parser before persistence.
+  assert.equal(created.tweakNote, "Swapped the queue for streaming.");
+});
+
+test("POST /solutions rejects a blank tweakNote or parentSolutionId when present", async () => {
+  const { implementation } = handlers();
+  for (const invalid of [
+    { ...validBody, parentSolutionId: "   " },
+    { ...validBody, tweakNote: "   " },
+  ]) {
+    await assert.rejects(
+      () => implementation.publish(request(invalid)),
+      (error: unknown) => error instanceof HttpError && error.status === 400 && error.code === "bad_request",
+    );
+  }
+});
+
 test("POST /solutions accepts a pro author with company", async () => {
   const { implementation } = handlers();
   const result = await implementation.publish(

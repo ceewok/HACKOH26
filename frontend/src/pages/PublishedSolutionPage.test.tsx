@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import mermaid from "mermaid";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, expect, it, vi } from "vitest";
 import { api, ApiClientError, type Feedback, type SolutionDetail } from "../api";
 import { setSession } from "../session";
@@ -28,6 +28,13 @@ const detail: SolutionDetail = {
     { id: "tweak-1", problemId: "problem-1", author: { role: "student", nickname: "Sam" }, spec: { api: "API", processing: "Lambda", storage: "DynamoDB", bottlenecks: "Queue" }, mermaid: "flowchart TD\nA --> B", parentSolutionId: "solution-1", tweakNote: "Added a queue.", endorsedByPro: false, createdAt: "2026-10-25T00:00:00.000Z" },
   ],
 };
+
+/** Captures the tweak seed carried in navigation state so the test can assert it. */
+function TweakSeedProbe() {
+  const location = useLocation();
+  const seed = (location.state as { tweak?: unknown } | null)?.tweak;
+  return <pre data-testid="tweak-seed">{JSON.stringify(seed)}</pre>;
+}
 
 function renderDetail(id = detail.id) {
   return render(
@@ -148,4 +155,49 @@ it("surfaces a feedback submission error and keeps the draft", async () => {
 
   expect(await screen.findByRole("alert")).toHaveTextContent("Unable to save feedback");
   expect(screen.getByLabelText(/feedback as/i)).toHaveValue("Nice work.");
+});
+
+// --- Task 9: tweak / fork flow ---
+
+it("lists public community tweaks linking to each tweak solution", async () => {
+  vi.mocked(api.getSolution).mockResolvedValue(detail);
+  renderDetail();
+
+  const tweakLink = await screen.findByRole("link", { name: /Sam's tweak/ });
+  expect(tweakLink).toHaveAttribute("href", "/solutions/tweak-1");
+  expect(screen.getByText("Added a queue.")).toBeInTheDocument();
+});
+
+it("Tweak This Design opens the problem Studio pre-filled with this solution's spec + diagram", async () => {
+  vi.mocked(api.getSolution).mockResolvedValue(detail);
+  render(
+    <MemoryRouter
+      initialEntries={[`/solutions/${detail.id}`]}
+      future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+    >
+      <Routes>
+        <Route path="/solutions/:id" element={<PublishedSolutionPage />} />
+        <Route path="/problems/:id" element={<TweakSeedProbe />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+
+  await screen.findByRole("heading", { name: "Morgan's architecture" });
+  await userEvent.click(screen.getByRole("button", { name: "Tweak This Design" }));
+
+  const seed = await screen.findByTestId("tweak-seed");
+  expect(JSON.parse(seed.textContent ?? "{}")).toEqual({
+    parentSolutionId: detail.id,
+    parentAuthor: "Morgan",
+    spec: detail.spec,
+    mermaid: detail.mermaid,
+  });
+});
+
+it("flags a solution that is itself a tweak of another design", async () => {
+  vi.mocked(api.getSolution).mockResolvedValue({ ...detail, parentSolutionId: "origin-1" });
+  renderDetail();
+
+  const originLink = await screen.findByRole("link", { name: "Tweak of another design" });
+  expect(originLink).toHaveAttribute("href", "/solutions/origin-1");
 });

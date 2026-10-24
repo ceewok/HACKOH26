@@ -16,6 +16,17 @@ type BlueprintField = keyof BlueprintSpec;
 export interface PublishDraft {
   spec: BlueprintSpec;
   mermaid: string;
+  tweakNote?: string;
+}
+
+/** When present, the Studio is forking an existing solution (Task 9). */
+export interface TweakContext {
+  /** The parent solution being tweaked. */
+  parentSolutionId: string;
+  /** Author nickname of the parent, shown for context. */
+  parentAuthor: string;
+  /** The parent's last-published diagram, pre-loaded as the starting preview. */
+  parentMermaid: string;
 }
 
 interface BlueprintStudioProps {
@@ -26,6 +37,7 @@ interface BlueprintStudioProps {
   publishError: string | null;
   onChange(spec: BlueprintSpec): void;
   onPublish(draft: PublishDraft): Promise<void>;
+  tweak?: TweakContext;
 }
 
 interface RenderedDiagram {
@@ -69,12 +81,14 @@ export function BlueprintStudio({
   publishError,
   onChange,
   onPublish,
+  tweak,
 }: BlueprintStudioProps) {
   const [activeField, setActiveField] = useState<BlueprintField>("api");
   const [selectedHint, setSelectedHint] = useState<string | null>(null);
   const [diagram, setDiagram] = useState<RenderedDiagram | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [diagramError, setDiagramError] = useState<string | null>(null);
+  const [tweakNote, setTweakNote] = useState("");
   const requestVersion = useRef(0);
   const mounted = useRef(true);
 
@@ -84,6 +98,25 @@ export function BlueprintStudio({
       mounted.current = false;
     };
   }, []);
+
+  // When tweaking, pre-load the parent's diagram so the preview is populated and
+  // the user can publish immediately after editing, without re-generating.
+  useEffect(() => {
+    if (!tweak?.parentMermaid) return;
+    let active = true;
+    renderMermaid(tweak.parentMermaid)
+      .then((svg) => {
+        if (active && mounted.current) {
+          setDiagram((current) => current ?? { source: tweak.parentMermaid, svg });
+        }
+      })
+      .catch(() => {
+        /* A bad parent diagram just leaves the preview empty; Update Blueprint still works. */
+      });
+    return () => {
+      active = false;
+    };
+  }, [tweak?.parentMermaid]);
 
   function updateField(field: BlueprintField, value: string) {
     onChange({ ...spec, [field]: value });
@@ -95,10 +128,18 @@ export function BlueprintStudio({
   }
 
   const hasDraft = Object.values(spec).some((value) => value.trim());
+  const isTweak = Boolean(tweak);
+  const hasTweakNote = tweakNote.trim().length > 0;
+  const canPublish = Boolean(diagram) && hasDraft && !isPublishing && (!isTweak || hasTweakNote);
 
   function publishSolution() {
     if (!diagram || !hasDraft || isPublishing) return;
-    void onPublish({ spec, mermaid: diagram.source });
+    if (isTweak && !hasTweakNote) return;
+    void onPublish({
+      spec,
+      mermaid: diagram.source,
+      ...(isTweak ? { tweakNote: tweakNote.trim() } : {}),
+    });
   }
 
   async function updateBlueprint() {
@@ -133,9 +174,16 @@ export function BlueprintStudio({
     <section className="blueprint-studio" aria-labelledby="studio-title">
       <header className="blueprint-studio__header">
         <div>
-          <p className="hub__eyebrow">Draft your design</p>
-          <h2 id="studio-title">Blueprint Studio</h2>
-          <p>Use the prompts to explain your reasoning. There is no single correct architecture.</p>
+          <p className="hub__eyebrow">{isTweak ? "Tweak this design" : "Draft your design"}</p>
+          <h2 id="studio-title">{isTweak ? "Tweak Studio" : "Blueprint Studio"}</h2>
+          {isTweak ? (
+            <p>
+              You're forking <strong>{tweak!.parentAuthor}</strong>'s blueprint. Edit the spec and
+              diagram, then add a short note explaining what you changed and why.
+            </p>
+          ) : (
+            <p>Use the prompts to explain your reasoning. There is no single correct architecture.</p>
+          )}
         </div>
       </header>
 
@@ -180,6 +228,22 @@ export function BlueprintStudio({
               </label>
             ))}
           </div>
+
+          {isTweak && (
+            <label className="studio-field studio-field--tweak" htmlFor="blueprint-tweak-note">
+              <span className="studio-field__label">Why I tweaked this</span>
+              <span className="studio-field__prompt">
+                One line the community will see on {tweak!.parentAuthor}'s design linking back to your fork.
+              </span>
+              <textarea
+                id="blueprint-tweak-note"
+                onChange={(event) => setTweakNote(event.target.value)}
+                placeholder="e.g. Swapped the queue for streaming to cut tail latency."
+                value={tweakNote}
+                maxLength={280}
+              />
+            </label>
+          )}
         </form>
 
         <aside className="blueprint-preview" aria-labelledby="preview-title">
@@ -216,14 +280,17 @@ export function BlueprintStudio({
           {diagram && <p className="blueprint-preview__source">Mermaid source stored for this preview.</p>}
           <button
             className="button button--primary"
-            disabled={!diagram || !hasDraft || isPublishing}
+            disabled={!canPublish}
             onClick={publishSolution}
             type="button"
           >
-            {isPublishing ? "Publishing…" : "Publish Solution"}
+            {isPublishing ? "Publishing…" : isTweak ? "Publish Tweak" : "Publish Solution"}
           </button>
           {!diagram && <p className="blueprint-preview__source">Generate a blueprint before publishing.</p>}
           {diagram && !hasDraft && <p className="blueprint-preview__source">Add design notes before publishing.</p>}
+          {diagram && hasDraft && isTweak && !hasTweakNote && (
+            <p className="blueprint-preview__source">Add a short "why I tweaked this" note before publishing.</p>
+          )}
         </aside>
       </div>
     </section>
