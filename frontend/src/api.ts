@@ -119,6 +119,16 @@ export interface PublishSolutionResponse {
   solution: Solution;
 }
 
+export interface SubmitFeedbackInput {
+  author: Author;
+  text: string;
+}
+
+export interface SubmitFeedbackResponse {
+  feedback: Feedback;
+  endorsedByPro: boolean;
+}
+
 // --- Endpoints (filled in per task) ---
 
 export const api = {
@@ -140,4 +150,9 @@ export const api = {
       `/problems/${encodeURIComponent(problemId)}/solutions?role=${encodeURIComponent(role)}`,
     ),
   getSolution: (id: string) => request<SolutionDetail>(`/solutions/${encodeURIComponent(id)}`),
+  submitFeedback: (solutionId: string, input: SubmitFeedbackInput) =>
+    request<SubmitFeedbackResponse>(`/solutions/${encodeURIComponent(solutionId)}/feedback`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
 };

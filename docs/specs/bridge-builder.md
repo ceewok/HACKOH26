@@ -220,7 +220,10 @@ NOTES:    If author.role == "pro", set the solution's endorsedByPro = true.
       Supports public All/Industry Pros/Students filtering, newest-first gallery/tweaks, and
       reloadable detail with rendered diagram, feedback, and direct tweaks. **(Task 7: mocked
       tests pass; real DynamoDB read smoke needs Docker or deployed AWS)**
-- [ ] (backend+frontend) feedback + "Endorsed by a Pro" badge.
+- [x] (backend+frontend) feedback + "Endorsed by a Pro" badge. `POST /solutions/{id}/feedback`
+      stores public feedback; a pro's feedback sets `endorsedByPro` and the detail page shows the
+      badge immediately. **(Task 8: mocked tests pass; hosted DynamoDB feedback + endorsement
+      smoke passed in us-east-2)**
 - [ ] (frontend+backend) tweak / fork flow.
 - [ ] (qa+devops) end-to-end polish + demo hardening.
 
@@ -289,6 +292,16 @@ NOTES:    If author.role == "pro", set the solution's endorsedByPro = true.
   unknown problems under the published contract and intentionally omits pagination for the small
   hackathon dataset. Three static solution examples seed the gallery without replacing user
   solutions. Task 8 may render feedback but owns writing it.
+- _2026-10-24_ (Task 8 implemented) — `POST /solutions/{id}/feedback` validates the public
+  author (pros must name a company) and nonblank text, then writes server-owned feedback. A
+  pro's feedback idempotently sets `endorsedByPro`; an already-endorsed solution stays endorsed
+  and skips a redundant write. The response returns the stored feedback plus the solution's
+  `endorsedByPro` after the write so the detail page can append the comment and flip the
+  "Endorsed by a Pro" badge without a reload. The feedback composer uses the local session
+  identity and nudges anonymous visitors to onboard first. Verified live against the hosted
+  `bridge-builder` table in us-east-2: student feedback left the solution unendorsed, pro
+  feedback endorsed it, and blank-text/unknown-solution/pro-without-company requests returned
+  400/404/400. Task 9 owns creating tweaks.
 - _2026-10-24_ (AWS smoke) — An on-demand `bridge-builder` table and `TypeIndex` GSI were
   manually provisioned in `us-east-2` under the authenticated `isb` profile. Hosted seeding,
   problem reads, solution gallery/detail reads, and a real `AWSVerification` publish write all

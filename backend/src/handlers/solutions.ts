@@ -12,7 +12,9 @@ import {
   getSolutionById,
   listFeedbackForSolution,
   listSolutionsForProblem,
+  putFeedback,
   putSolution,
+  setSolutionEndorsed,
 } from "../repo.js";
 import { route } from "../router.js";
 import type {
@@ -31,6 +33,8 @@ export interface SolutionRepository {
   listSolutionsForProblem(problemId: string): Promise<Solution[]>;
   getSolutionById(id: string): Promise<Solution | null>;
   listFeedbackForSolution(solutionId: string): Promise<Feedback[]>;
+  putFeedback(feedback: Feedback): Promise<void>;
+  setSolutionEndorsed(problemId: string, solutionId: string): Promise<void>;
 }
 
 interface PublishRequest {
@@ -40,6 +44,11 @@ interface PublishRequest {
   mermaid: string;
   parentSolutionId?: string;
   tweakNote?: string;
+}
+
+interface FeedbackRequest {
+  author: Author;
+  text: string;
 }
 
 type GalleryRole = "all" | "student" | "pro";
@@ -59,19 +68,23 @@ function optionalText(value: unknown, field: string): string | undefined {
   return value.trim();
 }
 
+/** Validate the public identity sent with any write (pros must name a company). */
+function parseAuthor(value: unknown): Author {
+  if (!isRecord(value)) throw errors.badRequest("author is required.");
+  const role = value.role;
+  if (role !== "student" && role !== "pro") throw errors.badRequest("author.role must be student or pro.");
+  const nickname = requiredText(value.nickname, "author.nickname");
+  return role === "pro"
+    ? { role, nickname, company: requiredText(value.company, "author.company") }
+    : { role, nickname };
+}
+
 /** Validate publish input and construct only client-controlled persisted fields. */
 export function parsePublishRequest(body: unknown): PublishRequest {
   if (!isRecord(body)) throw errors.badRequest("A JSON request body is required.");
-  if (!isRecord(body.author)) throw errors.badRequest("author is required.");
   if (!isRecord(body.spec)) throw errors.badRequest("spec is required.");
 
-  const role = body.author.role;
-  if (role !== "student" && role !== "pro") throw errors.badRequest("author.role must be student or pro.");
-  const nickname = requiredText(body.author.nickname, "author.nickname");
-  const author: Author =
-    role === "pro"
-      ? { role, nickname, company: requiredText(body.author.company, "author.company") }
-      : { role, nickname };
+  const author = parseAuthor(body.author);
 
   const fields: Array<keyof SolutionSpec> = ["api", "processing", "storage", "bottlenecks"];
   const spec = {} as SolutionSpec;
@@ -97,9 +110,23 @@ export function parsePublishRequest(body: unknown): PublishRequest {
   };
 }
 
+/** Validate public feedback input (server owns id/createdAt/solutionId). */
+export function parseFeedbackRequest(body: unknown): FeedbackRequest {
+  if (!isRecord(body)) throw errors.badRequest("A JSON request body is required.");
+  return {
+    author: parseAuthor(body.author),
+    text: requiredText(body.text, "text"),
+  };
+}
+
 function publishFailure(error: unknown): never {
   if (error instanceof HttpError) throw error;
   throw errors.internal("Unable to publish solution. Try again shortly.");
+}
+
+function feedbackFailure(error: unknown): never {
+  if (error instanceof HttpError) throw error;
+  throw errors.internal("Unable to save feedback. Try again shortly.");
 }
 
 function readFailure(error: unknown): never {
@@ -122,6 +149,7 @@ export function createSolutionHandlers(repository: SolutionRepository): {
   publish: (request: ApiRequest) => Promise<ApiResponse>;
   list: (request: ApiRequest) => Promise<ApiResponse>;
   detail: (request: ApiRequest) => Promise<ApiResponse>;
+  feedback: (request: ApiRequest) => Promise<ApiResponse>;
 } {
   return {
     publish: async (request) => {
@@ -211,6 +239,41 @@ export function createSolutionHandlers(repository: SolutionRepository): {
       };
       return ok(detail);
     },
+
+    feedback: async (request) => {
+      const solutionId = requiredText(request.params.id, "solutionId");
+      const feedbackRequest = parseFeedbackRequest(request.body);
+
+      let solution: Solution | null;
+      try {
+        solution = await repository.getSolutionById(solutionId);
+      } catch (error) {
+        return feedbackFailure(error);
+      }
+      if (!solution) throw errors.notFound(`No solution with id ${solutionId}`);
+
+      const feedback: Feedback = {
+        id: randomUUID(),
+        solutionId: solution.id,
+        author: feedbackRequest.author,
+        text: feedbackRequest.text,
+        createdAt: new Date().toISOString(),
+      };
+
+      try {
+        await repository.putFeedback(feedback);
+        // A pro's feedback endorses the solution. The write is idempotent, so an
+        // already-endorsed solution simply stays endorsed.
+        if (feedback.author.role === "pro" && !solution.endorsedByPro) {
+          await repository.setSolutionEndorsed(solution.problemId, solution.id);
+        }
+      } catch (error) {
+        return feedbackFailure(error);
+      }
+
+      const endorsedByPro = solution.endorsedByPro || feedback.author.role === "pro";
+      return created({ feedback, endorsedByPro });
+    },
   };
 }
 
@@ -220,13 +283,10 @@ const handlers = createSolutionHandlers({
   listSolutionsForProblem,
   getSolutionById,
   listFeedbackForSolution,
+  putFeedback,
+  setSolutionEndorsed,
 });
 route("POST", "/solutions", handlers.publish);
 route("GET", "/problems/:id/solutions", handlers.list);
 route("GET", "/solutions/:id", handlers.detail);
-
-const notImplemented = (what: string) => () => {
-  throw new HttpError(501, "not_implemented", `${what} is not implemented yet`);
-};
-
-route("POST", "/solutions/:id/feedback", notImplemented("POST /solutions/:id/feedback"));
+route("POST", "/solutions/:id/feedback", handlers.feedback);

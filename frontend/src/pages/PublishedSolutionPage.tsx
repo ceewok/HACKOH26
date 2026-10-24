@@ -1,14 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api, ApiClientError, type SolutionDetail } from "../api";
+import { api, ApiClientError, type Feedback, type SolutionDetail } from "../api";
 import { MermaidSourcePreview } from "../components/MermaidPreview";
+import { getSession } from "../session";
 
 type DetailState =
   | { kind: "loading" }
   | { kind: "ready"; solution: SolutionDetail }
   | { kind: "error"; code: string; message: string };
 
-/** Reloadable public solution detail. Feedback display is read-only until Task 8. */
+/** Reloadable public solution detail with public feedback + pro endorsement. */
 export function PublishedSolutionPage() {
   const { id } = useParams();
   const [state, setState] = useState<DetailState>({ kind: "loading" });
@@ -65,6 +66,22 @@ export function PublishedSolutionPage() {
   }
 
   const { solution } = state;
+
+  const applyFeedback = (feedback: Feedback, endorsedByPro: boolean) => {
+    setState((current) =>
+      current.kind === "ready"
+        ? {
+            kind: "ready",
+            solution: {
+              ...current.solution,
+              feedback: [...current.solution.feedback, feedback],
+              endorsedByPro,
+            },
+          }
+        : current,
+    );
+  };
+
   return (
     <article className="solution-detail" aria-labelledby="solution-title">
       <Link className="problem-page__back" to={`/problems/${encodeURIComponent(solution.problemId)}`}>
@@ -109,13 +126,17 @@ export function PublishedSolutionPage() {
               <li key={feedback.id}>
                 <strong>{feedback.author.nickname}</strong>
                 {feedback.author.company ? ` · ${feedback.author.company}` : ""}
+                {feedback.author.role === "pro" && (
+                  <span className="solution-badge solution-badge--pro"> Industry Pro</span>
+                )}
                 <p>{feedback.text}</p>
               </li>
             ))}
           </ul>
         ) : (
-          <p>No feedback yet. Task 8 adds public feedback submission.</p>
+          <p>No feedback yet. Be the first to weigh in.</p>
         )}
+        <FeedbackForm solutionId={solution.id} onSubmitted={applyFeedback} />
       </section>
 
       <section className="solution-detail__community" aria-labelledby="solution-tweaks-title">
@@ -134,5 +155,69 @@ export function PublishedSolutionPage() {
         )}
       </section>
     </article>
+  );
+}
+
+type FeedbackFormProps = {
+  solutionId: string;
+  onSubmitted: (feedback: Feedback, endorsedByPro: boolean) => void;
+};
+
+/** Public feedback composer. A pro's feedback endorses the solution on the server. */
+function FeedbackForm({ solutionId, onSubmitted }: FeedbackFormProps) {
+  const session = getSession();
+  const [text, setText] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (!session) {
+    return (
+      <p className="feedback-form__notice">
+        <Link to="/">Set up your demo identity</Link> to leave feedback.
+      </p>
+    );
+  }
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const trimmed = text.trim();
+    if (!trimmed || submitting) return;
+
+    setSubmitting(true);
+    setError(null);
+    try {
+      const result = await api.submitFeedback(solutionId, { author: session, text: trimmed });
+      onSubmitted(result.feedback, result.endorsedByPro);
+      setText("");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Could not save your feedback.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <form className="feedback-form" onSubmit={handleSubmit} aria-label="Leave public feedback">
+      <label htmlFor="feedback-text">
+        Feedback as <strong>{session.nickname}</strong>
+        {session.role === "pro" ? ` · ${session.company} (Industry Pro)` : " (Student)"}
+      </label>
+      {session.role === "pro" && (
+        <p className="feedback-form__hint">Your feedback endorses this design with a Pro badge.</p>
+      )}
+      <textarea
+        id="feedback-text"
+        value={text}
+        onChange={(event) => setText(event.target.value)}
+        placeholder="What's strong, and what would you push on?"
+        rows={3}
+        maxLength={1000}
+        disabled={submitting}
+      />
+      {error && <p className="feedback-form__error" role="alert">{error}</p>}
+      <button className="button button--primary" type="submit" disabled={submitting || !text.trim()}>
+        {submitting ? "Posting…" : "Post feedback"}
+      </button>
+    </form>
   );
 }

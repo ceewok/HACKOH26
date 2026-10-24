@@ -48,6 +48,8 @@ function handlers(options?: {
   failWrite?: boolean;
 }) {
   const written: Solution[] = [];
+  const writtenFeedback: Feedback[] = [];
+  const endorsed: Array<{ problemId: string; solutionId: string }> = [];
   const implementation = createSolutionHandlers({
     getProblem: async () => {
       if (options?.failRead) throw new Error("DynamoDB details");
@@ -69,8 +71,16 @@ function handlers(options?: {
       if (options?.failRead) throw new Error("DynamoDB details");
       return options?.feedback ?? [];
     },
+    putFeedback: async (record) => {
+      if (options?.failWrite) throw new Error("DynamoDB details");
+      writtenFeedback.push(record);
+    },
+    setSolutionEndorsed: async (problemId, solutionId) => {
+      if (options?.failWrite) throw new Error("DynamoDB details");
+      endorsed.push({ problemId, solutionId });
+    },
   });
-  return { implementation, written };
+  return { implementation, written, writtenFeedback, endorsed };
 }
 
 test("POST /solutions creates a server-owned public solution", async () => {
@@ -219,4 +229,99 @@ test("GET /solutions/{id} returns 404 or generic 500 safely", async () => {
       error.status === 500 &&
       error.message === "Unable to load solutions. Try again shortly.",
   );
+});
+
+test("POST /solutions/{id}/feedback stores student feedback without endorsing", async () => {
+  const target = solution({ id: "sol-1" });
+  const { implementation, writtenFeedback, endorsed } = handlers({ detailSolution: target });
+
+  const result = await implementation.feedback(
+    request({ author: { role: "student", nickname: "Sam" }, text: "  Love the queue.  " }, { id: target.id }),
+  );
+
+  assert.equal(result.status, 201);
+  const body = result.body as { feedback: Feedback; endorsedByPro: boolean };
+  assert.equal(body.endorsedByPro, false);
+  assert.equal(endorsed.length, 0);
+  assert.equal(writtenFeedback.length, 1);
+  const stored = writtenFeedback[0];
+  assert.equal(stored, body.feedback);
+  assert.equal(stored.solutionId, target.id);
+  assert.equal(stored.text, "Love the queue.");
+  assert.match(stored.id, /^[0-9a-f-]{36}$/i);
+  assert.ok(!Number.isNaN(Date.parse(stored.createdAt)));
+  assert.deepEqual(stored.author, { role: "student", nickname: "Sam" });
+});
+
+test("POST /solutions/{id}/feedback from a pro endorses the solution once", async () => {
+  const target = solution({ id: "sol-2", endorsedByPro: false });
+  const { implementation, endorsed } = handlers({ detailSolution: target });
+
+  const result = await implementation.feedback(
+    request({ author: { role: "pro", nickname: "Morgan", company: "Honda" }, text: "Solid." }, { id: target.id }),
+  );
+
+  assert.equal(result.status, 201);
+  assert.equal((result.body as { endorsedByPro: boolean }).endorsedByPro, true);
+  assert.deepEqual(endorsed, [{ problemId: target.problemId, solutionId: target.id }]);
+});
+
+test("POST /solutions/{id}/feedback does not re-endorse an already endorsed solution", async () => {
+  const target = solution({ id: "sol-3", endorsedByPro: true });
+  const { implementation, endorsed } = handlers({ detailSolution: target });
+
+  const result = await implementation.feedback(
+    request({ author: { role: "pro", nickname: "Morgan", company: "Honda" }, text: "Agree." }, { id: target.id }),
+  );
+
+  assert.equal((result.body as { endorsedByPro: boolean }).endorsedByPro, true);
+  assert.equal(endorsed.length, 0);
+});
+
+test("POST /solutions/{id}/feedback rejects blank text and malformed authors", async () => {
+  const target = solution({ id: "sol-4" });
+  const { implementation } = handlers({ detailSolution: target });
+  const invalidBodies = [
+    undefined,
+    {},
+    { author: { role: "student", nickname: "Sam" } },
+    { author: { role: "student", nickname: "Sam" }, text: "   " },
+    { author: { role: "pro", nickname: "Morgan" }, text: "No company." },
+    { author: { role: "ghost", nickname: "Boo" }, text: "Bad role." },
+    { text: "No author." },
+  ];
+
+  for (const body of invalidBodies) {
+    await assert.rejects(
+      () => implementation.feedback(request(body, { id: target.id })),
+      (error: unknown) => error instanceof HttpError && error.status === 400 && error.code === "bad_request",
+    );
+  }
+});
+
+test("POST /solutions/{id}/feedback returns 404 for an unknown solution", async () => {
+  const { implementation, writtenFeedback } = handlers({ detailSolution: null });
+
+  await assert.rejects(
+    () => implementation.feedback(request({ author: { role: "student", nickname: "Sam" }, text: "Hi" }, { id: "missing" })),
+    (error: unknown) => error instanceof HttpError && error.status === 404 && error.code === "not_found",
+  );
+  assert.equal(writtenFeedback.length, 0);
+});
+
+test("POST /solutions/{id}/feedback returns a generic 500 for repository failures", async () => {
+  const target = solution({ id: "sol-5" });
+  const readFailure = handlers({ detailSolution: target, failRead: true });
+  const writeFailure = handlers({ detailSolution: target, failWrite: true });
+
+  for (const implementation of [readFailure.implementation, writeFailure.implementation]) {
+    await assert.rejects(
+      () => implementation.feedback(request({ author: { role: "pro", nickname: "Morgan", company: "Honda" }, text: "Hi" }, { id: target.id })),
+      (error: unknown) =>
+        error instanceof HttpError &&
+        error.status === 500 &&
+        error.code === "internal_error" &&
+        error.message === "Unable to save feedback. Try again shortly.",
+    );
+  }
 });

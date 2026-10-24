@@ -81,6 +81,14 @@ the team. You write little product code — your output is alignment.
   Reloadable solution detail renders Mermaid, design notes, feedback, and direct tweaks. Three
   static examples seed a non-empty demo gallery. Twenty-nine backend plus twenty frontend tests
   pass. QA review is approved. A real read needs Docker DynamoDB Local or deployed AWS.
+- **Task 8 (IMPLEMENTED; hosted DynamoDB smoke PASSED):** `POST /solutions/{id}/feedback`
+  validates the public author (pros need a company) and nonblank text, writes server-owned
+  feedback, and idempotently sets `endorsedByPro` when a pro responds. The response carries the
+  stored feedback plus the post-write endorsement flag, so the detail page appends the comment
+  and flips the "Endorsed by a Pro" badge without a reload. Anonymous visitors are nudged to
+  onboard before commenting. Verified live in us-east-2: student feedback stayed unendorsed, pro
+  feedback endorsed the solution, and blank-text/unknown-solution/pro-without-company returned
+  400/404/400. 37 backend + 24 frontend tests pass; both builds green.
 
 ### Active contracts
 | Contract | Owner | Consumer | Status | Spec ref |
@@ -90,7 +98,7 @@ the team. You write little product code — your output is alignment.
 | `POST /ai/diagram` | backend-architect | frontend | implemented; hosted Bedrock returns safe 502 pending Marketplace authorization | spec §4 |
 | `POST /solutions` | backend-architect | frontend | implemented; hosted DynamoDB publish/detail smoke passed | spec §4 |
 | `GET /problems/{id}/solutions`, `GET /solutions/{id}` | backend-architect | frontend | implemented; hosted gallery/detail smoke passed | spec §4 |
-| `POST /solutions/{id}/feedback` | backend-architect | frontend | defined (Task 8) | spec §4 |
+| `POST /solutions/{id}/feedback` | backend-architect | frontend | implemented; hosted feedback + endorsement smoke passed | spec §4 |
 
 ### Blockers
 | Blocker | Who's blocked | Needs | Owner | Status |
@@ -106,7 +114,8 @@ the team. You write little product code — your output is alignment.
 5. ~~`feat/task-5-ai-diagram` — Bedrock Converse diagram endpoint + lazy Mermaid preview~~ → merged to `main` (b09e149); live Bedrock smoke remains blocked
 6. ~~`feat/task-6-publish-solutions` — validated solution publication + confirmation route~~ → merged to `main` (0a89d2e); real persistence smoke remains blocked
 7. ~~`feat/task-7-gallery-detail` — public gallery + reloadable detail + demo blueprints~~ → merged to `main` (5b72a2f); real read smoke remains blocked
-8. (next) Task 8 — public feedback + endorsement
+8. ~~`feat/task-8-feedback-endorsement` — public feedback + pro endorsement badge~~ → pending fast-forward to `main`; hosted feedback/endorsement smoke passed
+9. (next) Task 9 — tweak / fork flow
 
 > **Repo note (devops):** This workspace lives under OneDrive, which locks folders during
 > Git's working-tree swaps and can hang an interactive branch `checkout`. Integrate by
@@ -268,4 +277,26 @@ MOCK:     Gallery/detail tests mock the api seam and Mermaid rendering only.
 NOTES:    `/solutions/:id` now reloads from GET, not navigation state. Task 8 owns feedback
           submission/endorsement writes; Task 9 owns creating tweaks. Seeded gallery examples
           live in backend/seed/solutions.json and are upserted by npm run seed.
+```
+
+
+### Task 8 — Public feedback + pro endorsement
+
+```text
+ENDPOINT: POST /solutions/{id}/feedback
+REQUEST:  { author: { role: "student"|"pro", nickname: string, company?: string }, text: string }
+RESPONSE: 201 { feedback, endorsedByPro }  // endorsedByPro reflects the solution after the write
+ERRORS:   400 blank text or malformed author (pro without company); 404 unknown solution;
+          500 { error: { code: "internal_error", message: "Unable to save feedback. Try again shortly." } }
+NOTES:    Server owns feedback id/createdAt/solutionId. A pro's feedback idempotently sets the
+          solution's endorsedByPro; an already-endorsed solution skips the redundant write.
+
+NEEDS:    POST /solutions/{id}/feedback
+SHAPE:    Request/response above, via api.submitFeedback(solutionId, { author, text }).
+BLOCKING: no — hosted DynamoDB feedback/endorsement smoke passed in us-east-2.
+MOCK:     Detail-page tests mock api.submitFeedback (and Mermaid) at their module seams.
+NOTES:    The composer sends the local session identity, disables submit while posting and on
+          blank text, keeps the draft on failure, and on success appends the comment and updates
+          the "Endorsed by a Pro" badge from the response without a reload. Anonymous visitors
+          see a prompt to onboard instead of the form.
 ```

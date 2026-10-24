@@ -1,14 +1,16 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import mermaid from "mermaid";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, expect, it, vi } from "vitest";
-import { api, ApiClientError, type SolutionDetail } from "../api";
+import { api, ApiClientError, type Feedback, type SolutionDetail } from "../api";
+import { setSession } from "../session";
 import { PublishedSolutionPage } from "./PublishedSolutionPage";
 
 vi.mock("mermaid", () => ({ default: { initialize: vi.fn(), render: vi.fn() } }));
 vi.mock("../api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../api")>();
-  return { ...actual, api: { ...actual.api, getSolution: vi.fn() } };
+  return { ...actual, api: { ...actual.api, getSolution: vi.fn(), submitFeedback: vi.fn() } };
 });
 
 const detail: SolutionDetail = {
@@ -37,9 +39,21 @@ function renderDetail(id = detail.id) {
   );
 }
 
+const studentDetail: SolutionDetail = {
+  ...detail,
+  id: "solution-2",
+  author: { role: "student", nickname: "Robin" },
+  endorsedByPro: false,
+  feedback: [],
+  tweaks: [],
+};
+
 beforeEach(() => {
+  localStorage.clear();
   vi.mocked(api.getSolution).mockReset();
+  vi.mocked(api.submitFeedback).mockReset();
   vi.mocked(mermaid.render).mockReset();
+  vi.mocked(mermaid.render).mockResolvedValue({ svg: '<svg xmlns="http://www.w3.org/2000/svg"></svg>' } as never);
 });
 
 it("reloads and renders the public detail, diagram, feedback, and direct tweaks", async () => {
@@ -63,4 +77,75 @@ it("renders a 404-specific state for a missing public solution", async () => {
   renderDetail("missing");
 
   expect(await screen.findByRole("heading", { name: "This solution is not available." })).toBeInTheDocument();
+});
+
+it("prompts an anonymous visitor to set up an identity before leaving feedback", async () => {
+  vi.mocked(api.getSolution).mockResolvedValue(studentDetail);
+  renderDetail(studentDetail.id);
+
+  expect(await screen.findByRole("heading", { name: "Robin's architecture" })).toBeInTheDocument();
+  expect(screen.getByText("Set up your demo identity")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /post feedback/i })).not.toBeInTheDocument();
+});
+
+it("posts student feedback, appending it without endorsing", async () => {
+  setSession({ role: "student", nickname: "Alex" });
+  vi.mocked(api.getSolution).mockResolvedValue(studentDetail);
+  const newFeedback: Feedback = {
+    id: "feedback-new",
+    solutionId: studentDetail.id,
+    author: { role: "student", nickname: "Alex" },
+    text: "Clean separation.",
+    createdAt: "2026-10-26T00:00:00.000Z",
+  };
+  vi.mocked(api.submitFeedback).mockResolvedValue({ feedback: newFeedback, endorsedByPro: false });
+  renderDetail(studentDetail.id);
+
+  await screen.findByRole("heading", { name: "Robin's architecture" });
+  await userEvent.type(screen.getByLabelText(/feedback as/i), "Clean separation.");
+  await userEvent.click(screen.getByRole("button", { name: /post feedback/i }));
+
+  await waitFor(() => expect(screen.getByText("Clean separation.")).toBeInTheDocument());
+  expect(api.submitFeedback).toHaveBeenCalledWith(studentDetail.id, {
+    author: { role: "student", nickname: "Alex" },
+    text: "Clean separation.",
+  });
+  expect(screen.queryByText("Endorsed by a Pro")).not.toBeInTheDocument();
+});
+
+it("shows the Endorsed by a Pro badge after a pro posts feedback", async () => {
+  setSession({ role: "pro", nickname: "Morgan", company: "Honda" });
+  vi.mocked(api.getSolution).mockResolvedValue(studentDetail);
+  const proFeedback: Feedback = {
+    id: "feedback-pro",
+    solutionId: studentDetail.id,
+    author: { role: "pro", nickname: "Morgan", company: "Honda" },
+    text: "Ship it.",
+    createdAt: "2026-10-26T00:00:00.000Z",
+  };
+  vi.mocked(api.submitFeedback).mockResolvedValue({ feedback: proFeedback, endorsedByPro: true });
+  renderDetail(studentDetail.id);
+
+  await screen.findByRole("heading", { name: "Robin's architecture" });
+  expect(screen.queryByText("Endorsed by a Pro")).not.toBeInTheDocument();
+
+  await userEvent.type(screen.getByLabelText(/feedback as/i), "Ship it.");
+  await userEvent.click(screen.getByRole("button", { name: /post feedback/i }));
+
+  await waitFor(() => expect(screen.getByText("Endorsed by a Pro")).toBeInTheDocument());
+  expect(screen.getByText("Ship it.")).toBeInTheDocument();
+});
+
+it("surfaces a feedback submission error and keeps the draft", async () => {
+  setSession({ role: "student", nickname: "Alex" });
+  vi.mocked(api.getSolution).mockResolvedValue(studentDetail);
+  vi.mocked(api.submitFeedback).mockRejectedValue(new ApiClientError(500, "internal_error", "Unable to save feedback. Try again shortly."));
+  renderDetail(studentDetail.id);
+
+  await screen.findByRole("heading", { name: "Robin's architecture" });
+  await userEvent.type(screen.getByLabelText(/feedback as/i), "Nice work.");
+  await userEvent.click(screen.getByRole("button", { name: /post feedback/i }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("Unable to save feedback");
+  expect(screen.getByLabelText(/feedback as/i)).toHaveValue("Nice work.");
 });
