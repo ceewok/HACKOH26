@@ -13,3 +13,18 @@ export const config = {
   },
   port: Number(process.env.PORT ?? 4000),
 };
+
+/**
+ * SDK options shared by the repository and local-table setup. DynamoDB Local
+ * still requires credentials at the SDK layer; these are intentionally dummy
+ * local-only values and are never used for an AWS endpoint.
+ */
+export const dynamoClientOptions = {
+  region: config.region,
+  ...(config.dynamoEndpoint
+    ? {
+        endpoint: config.dynamoEndpoint,
+        credentials: { accessKeyId: "local", secretAccessKey: "local" },
+      }
+    : {}),
+};

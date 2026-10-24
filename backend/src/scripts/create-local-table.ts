@@ -8,12 +8,9 @@ import {
   DynamoDBClient,
   ResourceNotFoundException,
 } from "@aws-sdk/client-dynamodb";
-import { config } from "../config.js";
+import { config, dynamoClientOptions } from "../config.js";
 
-const client = new DynamoDBClient({
-  region: config.region,
-  ...(config.dynamoEndpoint ? { endpoint: config.dynamoEndpoint } : {}),
-});
+const client = new DynamoDBClient(dynamoClientOptions);
 
 async function exists(name: string): Promise<boolean> {
   try {

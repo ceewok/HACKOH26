@@ -6,12 +6,13 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
   DynamoDBDocumentClient,
+  DeleteCommand,
   GetCommand,
   PutCommand,
   QueryCommand,
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
-import { config } from "./config.js";
+import { config, dynamoClientOptions } from "./config.js";
 import type {
   Feedback,
   Problem,
@@ -19,11 +20,7 @@ import type {
   Solution,
 } from "./types.js";
 
-const client = new DynamoDBClient({
-  region: config.region,
-  ...(config.dynamoEndpoint ? { endpoint: config.dynamoEndpoint } : {}),
-});
-
+const client = new DynamoDBClient(dynamoClientOptions);
 const doc = DynamoDBDocumentClient.from(client, {
   marshallOptions: { removeUndefinedValues: true },
 });
@@ -51,8 +48,9 @@ export async function getProblem(id: string): Promise<Problem | null> {
   return res.Item ? toProblem(res.Item) : null;
 }
 
-export async function listProblems(): Promise<ProblemSummary[]> {
-  // Small dataset for a demo; a Scan filtered to problem metadata is fine here.
+async function listProblemRecords(): Promise<Problem[]> {
+  // Problems are represented by a single metadata item each. The TypeIndex GSI
+  // lets this small demo catalog be queried without scanning the full table.
   const res = await doc.send(
     new QueryCommand({
       TableName: TABLE,
@@ -62,7 +60,22 @@ export async function listProblems(): Promise<ProblemSummary[]> {
       ExpressionAttributeValues: { ":t": "problem" },
     }),
   );
-  const items = (res.Items ?? []).map(toProblem);
+  return (res.Items ?? []).map(toProblem);
+}
+
+/** IDs owned by the seed catalog; used to retire entries removed from its JSON. */
+export async function listProblemIds(): Promise<string[]> {
+  return (await listProblemRecords()).map((problem) => problem.id);
+}
+
+export async function deleteProblem(id: string): Promise<void> {
+  await doc.send(
+    new DeleteCommand({ TableName: TABLE, Key: { PK: problemPk(id), SK: "META" } }),
+  );
+}
+
+export async function listProblems(): Promise<ProblemSummary[]> {
+  const items = await listProblemRecords();
   // Weekly challenge first, then stable by title.
   items.sort((a, b) => {
     if (a.isWeekly !== b.isWeekly) return a.isWeekly ? -1 : 1;

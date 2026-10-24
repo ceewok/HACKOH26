@@ -34,7 +34,7 @@ npm run install:all
 docker run -p 8000:8000 amazon/dynamodb-local
 
 # 3. Create the local table + seed problems (one time, or after editing seed data)
-cp .env.example .env        # defaults already point at DynamoDB Local
+Copy-Item .env.example .env  # defaults already point at DynamoDB Local
 npm run db:setup
 npm run seed
 
@@ -49,8 +49,12 @@ You'll know it works when the header badge reads **Connected**.
 
 ### Adding a problem
 
-Drop a new entry into `backend/seed/problems.json` and re-run `npm run seed`. Exactly one
-entry should have `"isWeekly": true` (the weekly challenge).
+Drop a new entry into `backend/seed/problems.json` and re-run `npm run seed`. Each entry
+needs a unique lowercase kebab-case `id`, non-empty `title`, `hook`, `description`,
+`constraints`, and `hintPills`. Exactly one entry must have `"isWeekly": true` (the weekly
+challenge). The JSON file is authoritative for the seeded catalog: re-seeding upserts entries
+whose ids remain and retires existing seeded problems omitted from the file. Do not remove an
+entry unless it should disappear from the Hub.
 
 ## Environment
 

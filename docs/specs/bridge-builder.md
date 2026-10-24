@@ -194,8 +194,10 @@ NOTES:    If author.role == "pro", set the solution's endorsedByPro = true.
 
 - [x] (devops) Repo scaffold: frontend (Vite+React+TS), backend (SAM: API GW + Lambda +
       DynamoDB), `.gitignore`, `.env.example`, one-command local start in README. **(Task 1)**
-- [x] (backend) `GET /health` live locally. (seed + `GET /problems`/`{id}` handlers built;
-      full data path lands in Task 2)
+- [x] (backend) `GET /health` live locally. **(Task 1)**
+- [x] (backend) Task 2: seed catalog (one weekly + six persistent problems), idempotent
+      `npm run seed`, `GET /problems`, and `GET /problems/{id}`. Contract/unit tests pass;
+      real DynamoDB Local seed/API smoke remains blocked until Docker Desktop starts.
 - [ ] (frontend) Onboarding modal + Hub dashboard consuming `GET /problems`.
 - [ ] (frontend) Problem page + Studio skeleton with Hint Pills.
 - [ ] (backend+frontend) `POST /ai/diagram` (Bedrock) + Studio render.
@@ -225,3 +227,11 @@ NOTES:    If author.role == "pro", set the solution's endorsedByPro = true.
 - _2026-10-24_ (Task 1 done) — Local dev loads `.env` via Node `--env-file-if-exists` so a
   fresh clone runs before an `.env` exists. `GET /problems` verified to fail gracefully
   (500) without DynamoDB rather than crash the server.
+- _2026-10-24_ (Task 2 implemented) — Seed catalog includes one weekly challenge plus six
+  persistent problems. The seed script requires one weekly entry, unique lowercase kebab-case
+  ids, and non-empty fields; the JSON source is authoritative, so after successful upserts it
+  retires seeded problem records omitted from the file. This prevents a replaced weekly id
+  from leaving two weekly cards. Added dummy SDK credentials only when `DYNAMODB_ENDPOINT` is
+  set, which lets DynamoDB Local run without real AWS credentials. Docker Desktop was not
+  running during validation, so a real local table/seed/API smoke test is tracked in the
+  coordinator blocker board.
