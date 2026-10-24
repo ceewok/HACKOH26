@@ -61,12 +61,15 @@ the team. You write little product code — your output is alignment.
   guided Studio. Hint Pills append to the active spec field. The diagram pane accurately says
   Bedrock/Mermaid generation arrives in Task 5; it makes no AI request. Four detail-page tests
   cover success, loading, retry, empty arrays, and pill insertion. QA review is approved.
-- **Task 5 (IMPLEMENTED; live Bedrock smoke pending):** `POST /ai/diagram` validates its
-  request, calls Bedrock Converse on demand, accepts only normalized Mermaid flowchart/graph
-  output, and returns safe 400/502 errors. The Studio lazy-loads Mermaid, renders only
-  Mermaid-produced SVG, and preserves the last good diagram on API/render failure. Seventeen
-  backend plus thirteen frontend tests pass. QA review is approved. Live model invocation needs
-  AWS credentials and access to the configured model/profile.
+- **Task 5 (IMPLEMENTED; live Bedrock smoke PASSED on Nova):** `POST /ai/diagram` validates
+  its request, calls Bedrock Converse on demand, and sanitizes model output into a safe
+  flowchart subset (strips fences, drops stray prose, normalizes the header) rather than
+  rejecting a whole diagram over one stray line. The Studio lazy-loads Mermaid, renders only
+  Mermaid-produced SVG, and preserves the last good diagram on API/render failure. The client
+  prefers `AWS_BEARER_TOKEN_BEDROCK` when set. Live `POST /ai/diagram` verified against
+  `us.amazon.nova-micro-v1:0` in us-east-2 returning rendered Mermaid on 5/5 attempts. Claude
+  profiles still need a Marketplace subscription for the `isb` role. 31 backend + 20 frontend
+  tests pass.
 - **Task 6 (IMPLEMENTED; real persistence smoke pending):** `POST /solutions` validates a
   public author, nonblank spec, generated Mermaid, and known problem before writing a
   server-owned Solution record. The Studio preserves its draft on publish failure and routes a
@@ -93,7 +96,7 @@ the team. You write little product code — your output is alignment.
 | Blocker | Who's blocked | Needs | Owner | Status |
 |---------|---------------|-------|-------|--------|
 | Docker Desktop engine not running | backend, qa (optional local DynamoDB workflow) | start Docker Desktop, then run `npm run db:setup`, `npm run seed`, and the local API smoke | user / devops | optional — hosted DynamoDB smoke passed |
-| Bedrock model subscription/authorization | backend (live `POST /ai/diagram`) | account admin to enable the selected Claude profile or grant Marketplace subscription actions to the `isb` role | AWS account administrator | open — credentials work; Bedrock returns safe 502 |
+| Bedrock Claude Marketplace access | backend (Claude profiles only) | account admin to enable Claude Marketplace subscription for the `isb` role | AWS account administrator | open — Nova works; Claude profiles still return safe 502 |
 
 ### Merge queue
 1. ~~`feat/task-1-skeleton` — repo scaffold + spec + health check~~ → merged to `main` (d89694f)

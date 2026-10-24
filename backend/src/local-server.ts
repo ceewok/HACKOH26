@@ -53,5 +53,6 @@ if (isMainModule()) {
   createLocalApp().listen(config.port, () => {
     console.log(`Bridge Builder API (local) on http://localhost:${config.port}`);
     console.log(`  table=${config.tableName} dynamo=${config.dynamoEndpoint ?? "AWS"}`);
+    console.log(`  bedrockModel=${config.bedrock.modelId} bearerToken=${process.env.AWS_BEARER_TOKEN_BEDROCK ? "set" : "unset"}`);
   });
 }

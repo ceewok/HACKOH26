@@ -38,8 +38,9 @@ otherwise attempt to create a conflicting table.
 `POST /ai/diagram` uses the Bedrock Converse API only when a user clicks **Update Blueprint**.
 Local or deployed calls need ordinary AWS SDK credentials plus access to the configured model or
 inference profile in `BEDROCK_REGION`. Keep credentials outside `.env`; use your normal AWS CLI
-profile or session. Set `BEDROCK_MODEL_ID` to a model/profile ID that is enabled for your account
-and region. If a model requires cross-region inference, use its supported prefixed profile ID.
+profile or session. You may instead supply a temporary `AWS_BEARER_TOKEN_BEDROCK` only in
+your gitignored `.env`; when present, the backend explicitly prefers it over profile credentials.
+Set `BEDROCK_MODEL_ID` to a model/profile ID that is enabled for your account and region. If a model requires cross-region inference, use its supported prefixed profile ID.
 The API returns a safe 502 message when Bedrock is unavailable; the UI keeps the last successful
 diagram visible. The verified `isb` credentials work for DynamoDB but cannot invoke the selected
 Claude profile until an account administrator enables its AWS Marketplace subscription or grants

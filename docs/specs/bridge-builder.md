@@ -272,6 +272,13 @@ NOTES:    If author.role == "pro", set the solution's endorsedByPro = true.
   the last good diagram if the API or renderer fails. Deployment supplies the exact Bedrock
   model/profile ARN and limits the demo Lambda to two concurrent invocations. Live invocation
   remains blocked pending AWS credentials, region/model access, and model-ID verification.
+- _2026-10-24_ (Task 5 live) — Verified live against `us.amazon.nova-micro-v1:0` in us-east-2.
+  The output normalizer became a sanitizer: it strips Markdown fences, drops stray prose or
+  comment lines, normalizes the header to `flowchart TD`, and keeps the diagram only if a valid
+  header plus at least one node/edge line survive. This made Nova diagram generation reliable
+  (5/5 live attempts returned rendered Mermaid). The Bedrock client prefers
+  `AWS_BEARER_TOKEN_BEDROCK` when present. Claude profiles still require an AWS Marketplace
+  subscription for the `isb` role; Nova did not.
 - _2026-10-24_ (Task 6 implemented) — Publish sends only the current local public identity,
   nonblank guided spec, and last successfully rendered Mermaid source. The server supplies the
   solution ID, created time, and initial `endorsedByPro: false`, and confirms the problem exists

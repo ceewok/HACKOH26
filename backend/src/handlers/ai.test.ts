@@ -41,7 +41,17 @@ test("POST /ai/diagram allows empty individual spec fields", async () => {
   );
 
   assert.equal(result.status, 200);
-  assert.deepEqual(result.body, { mermaid: "graph TD\nA --> B" });
+  assert.deepEqual(result.body, { mermaid: "flowchart TD\nA --> B" });
+});
+
+test("POST /ai/diagram keeps usable lines and drops stray prose", async () => {
+  const handlers = handlerFor(
+    "flowchart TD\nHere is your diagram:\nA[Client] --> B[API]\nThanks for using the studio!\nB --> C[DynamoDB]",
+  );
+  const result = await handlers.generate(request(validBody));
+
+  assert.equal(result.status, 200);
+  assert.deepEqual(result.body, { mermaid: "flowchart TD\nA[Client] --> B[API]\nB --> C[DynamoDB]" });
 });
 
 test("POST /ai/diagram rejects malformed request bodies", async () => {
@@ -113,4 +123,14 @@ test("Bedrock Converse generator sends a constrained text request and extracts r
   assert.equal(maxTokens, 700);
   assert.match(systemInstruction, /Mermaid source only/);
   assert.equal(result, "flowchart TD\nStudent --> Studio");
+});
+
+test("POST /ai/diagram accepts safe standalone nodes and labelled edges", async () => {
+  const handlers = handlerFor(
+    "flowchart TD\nA[Problem ID weekly]\nB[API WebSocket gateway]\nA -->|connects to| B",
+  );
+
+  const result = await handlers.generate(request(validBody));
+  assert.equal(result.status, 200);
+  assert.match((result.body as { mermaid: string }).mermaid, /A -->\|connects to\| B$/);
 });
