@@ -1,11 +1,7 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { api, ApiClientError, type DiagramSpec } from "../api";
 
-export interface BlueprintSpec {
-  api: string;
-  processing: string;
-  storage: string;
-  bottlenecks: string;
-}
+export type BlueprintSpec = DiagramSpec;
 
 export const emptyBlueprintSpec: BlueprintSpec = {
   api: "",
@@ -18,8 +14,14 @@ type BlueprintField = keyof BlueprintSpec;
 
 interface BlueprintStudioProps {
   hintPills: string[];
+  problemId: string;
   spec: BlueprintSpec;
   onChange(spec: BlueprintSpec): void;
+}
+
+interface RenderedDiagram {
+  source: string;
+  svg: string;
 }
 
 const fields: Array<{ key: BlueprintField; label: string; prompt: string }> = [
@@ -45,14 +47,73 @@ const fields: Array<{ key: BlueprintField; label: string; prompt: string }> = [
   },
 ];
 
+type MermaidApi = typeof import("mermaid").default;
+
+let mermaidPromise: Promise<MermaidApi> | null = null;
+let renderSequence = 0;
+
+async function getMermaid(): Promise<MermaidApi> {
+  if (!mermaidPromise) {
+    mermaidPromise = import("mermaid").then(({ default: mermaid }) => {
+      mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: "dark" });
+      return mermaid;
+    });
+  }
+  return mermaidPromise;
+}
+
+async function renderMermaid(source: string): Promise<string> {
+  const mermaid = await getMermaid();
+  const result = await mermaid.render(`bridge-builder-diagram-${++renderSequence}`, source);
+  return result.svg;
+}
+
 function appendHint(current: string, hint: string): string {
   return current.trim() ? `${current}\n${hint}` : hint;
 }
 
-/** Structured drafting UI; Task 5 adds Bedrock + Mermaid to its preview pane. */
-export function BlueprintStudio({ hintPills, spec, onChange }: BlueprintStudioProps) {
+/** Appends Mermaid-generated SVG without treating model text as HTML. */
+function MermaidDiagram({ svg }: { svg: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const parsed = new DOMParser().parseFromString(svg, "image/svg+xml");
+    const diagram = parsed.documentElement;
+    if (diagram.nodeName.toLowerCase() === "parsererror") return;
+
+    container.replaceChildren(diagram);
+  }, [svg]);
+
+  return (
+    <div
+      className="blueprint-preview__diagram"
+      data-testid="mermaid-diagram"
+      ref={containerRef}
+      role="img"
+      aria-label="Generated architecture diagram"
+    />
+  );
+}
+
+/** Guided spec + on-demand Bedrock/Mermaid preview. */
+export function BlueprintStudio({ hintPills, problemId, spec, onChange }: BlueprintStudioProps) {
   const [activeField, setActiveField] = useState<BlueprintField>("api");
   const [selectedHint, setSelectedHint] = useState<string | null>(null);
+  const [diagram, setDiagram] = useState<RenderedDiagram | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [diagramError, setDiagramError] = useState<string | null>(null);
+  const requestVersion = useRef(0);
+  const mounted = useRef(true);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   function updateField(field: BlueprintField, value: string) {
     onChange({ ...spec, [field]: value });
@@ -61,6 +122,34 @@ export function BlueprintStudio({ hintPills, spec, onChange }: BlueprintStudioPr
   function useHint(hint: string) {
     setSelectedHint(hint);
     updateField(activeField, appendHint(spec[activeField], hint));
+  }
+
+  async function updateBlueprint() {
+    const thisRequest = ++requestVersion.current;
+    setIsGenerating(true);
+    setDiagramError(null);
+
+    try {
+      const response = await api.generateDiagram(problemId, spec);
+      const svg = await renderMermaid(response.mermaid);
+      if (!mounted.current || thisRequest !== requestVersion.current) return;
+
+      setDiagram({ source: response.mermaid, svg });
+    } catch (error) {
+      if (!mounted.current || thisRequest !== requestVersion.current) return;
+
+      if (error instanceof ApiClientError) {
+        setDiagramError(error.message);
+      } else {
+        setDiagramError(
+          diagram
+            ? "The generated diagram could not be rendered. Your previous preview is still available."
+            : "The generated diagram could not be rendered. Refine your design and try again.",
+        );
+      }
+    } finally {
+      if (mounted.current && thisRequest === requestVersion.current) setIsGenerating(false);
+    }
   }
 
   return (
@@ -117,15 +206,36 @@ export function BlueprintStudio({ hintPills, spec, onChange }: BlueprintStudioPr
         </form>
 
         <aside className="blueprint-preview" aria-labelledby="preview-title">
-          <p className="hub__eyebrow">Architecture view</p>
-          <h2 id="preview-title">Blueprint Preview</h2>
-          <div className="blueprint-preview__placeholder" role="region" aria-label="Diagram preview unavailable">
-            <h3>Diagram generation connects next.</h3>
-            <p>
-              Keep drafting on the left. Task 5 will turn this structured spec into a Mermaid
-              architecture diagram when you choose to update the blueprint.
-            </p>
+          <div className="blueprint-preview__heading">
+            <div>
+              <p className="hub__eyebrow">Architecture view</p>
+              <h2 id="preview-title">Blueprint Preview</h2>
+            </div>
+            <button
+              className="button button--primary"
+              disabled={isGenerating}
+              onClick={updateBlueprint}
+              type="button"
+            >
+              {isGenerating ? "Updating…" : "Update Blueprint"}
+            </button>
           </div>
+
+          {diagram ? (
+            <MermaidDiagram svg={diagram.svg} />
+          ) : (
+            <div className="blueprint-preview__placeholder" role="region" aria-label="Diagram preview pending">
+              <h3>Ready to map your architecture.</h3>
+              <p>
+                Fill in your design notes, then choose Update Blueprint to generate a Mermaid
+                architecture diagram.
+              </p>
+            </div>
+          )}
+
+          {isGenerating && <p className="blueprint-preview__status" role="status">Generating your diagram…</p>}
+          {diagramError && <p className="blueprint-preview__error" role="alert">{diagramError}</p>}
+          {diagram && <p className="blueprint-preview__source">Mermaid source stored for this preview.</p>}
         </aside>
       </div>
     </section>

@@ -146,7 +146,7 @@ POST /ai/diagram
 REQUEST:  { problemId: string,
             spec: { api, processing, storage, bottlenecks } }   // any field may be ""
 RESPONSE: 200 { mermaid: string }   // a valid Mermaid flowchart string
-ERRORS:   400 if spec missing; 502 if Bedrock fails or returns unusable output
+ERRORS:   400 if problemId/spec is missing or malformed; 502 if Bedrock fails or returns unusable output
 AUTH:     none
 NOTES:    On-demand ("Update Blueprint"). Lambda calls Bedrock Converse (Claude) with a
           system prompt constraining output to Mermaid only. Frontend keeps last good
@@ -204,7 +204,10 @@ NOTES:    If author.role == "pro", set the solution's endorsedByPro = true.
 - [x] (frontend) Problem page + Studio skeleton with Hint Pills. Consumes `GET /problems/{id}`
       and leaves a truthful Task 5 diagram-generation placeholder. **(Task 4: frontend tests
       pass; real local-data smoke pending)**
-- [ ] (backend+frontend) `POST /ai/diagram` (Bedrock) + Studio render.
+- [x] (backend+frontend) `POST /ai/diagram` (Bedrock) + Studio render. Uses on-demand
+      Converse generation with server/client Mermaid validation and keeps the last rendered
+      diagram when generation or rendering fails. **(Task 5: mocked tests pass; live Bedrock
+      invocation needs AWS credentials + model access)**
 - [ ] (backend+frontend) `POST /solutions` + publish action.
 - [ ] (backend+frontend) gallery + detail (`GET /problems/{id}/solutions`, `GET /solutions/{id}`).
 - [ ] (backend+frontend) feedback + "Endorsed by a Pro" badge.
@@ -251,3 +254,11 @@ NOTES:    If author.role == "pro", set the solution's endorsedByPro = true.
   creative control and providing an immediate nudge without a new API contract. The preview pane
   does not simulate a diagram or offer a no-op AI action; Task 5 owns the on-demand Bedrock +
   Mermaid integration.
+- _2026-10-24_ (Task 5 implemented) — Diagram generation is an explicit user action. The
+  backend uses Bedrock Converse with a constrained Mermaid-only system instruction, explicit
+  700-token limit, adaptive retries, and response normalization that accepts only a conservative
+  simple `flowchart`/`graph` subset (header plus safe node/edge lines). The browser lazy-loads
+  Mermaid after the action, renders only Mermaid-produced SVG under strict security, and retains
+  the last good diagram if the API or renderer fails. Deployment supplies the exact Bedrock
+  model/profile ARN and limits the demo Lambda to two concurrent invocations. Live invocation
+  remains blocked pending AWS credentials, region/model access, and model-ID verification.

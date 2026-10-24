@@ -23,6 +23,16 @@ Full AWS serverless: React + Vite (TS) frontend on S3/CloudFront · API Gateway 
 - [Docker](https://www.docker.com/) (to run DynamoDB Local for local dev)
 - For deploy / Bedrock: AWS credentials, and a Claude model enabled in Amazon Bedrock
 
+### Bedrock diagram generation
+
+`POST /ai/diagram` uses the Bedrock Converse API only when a user clicks **Update Blueprint**.
+Local or deployed calls need ordinary AWS SDK credentials plus access to the configured model or
+inference profile in `BEDROCK_REGION`. Keep credentials outside `.env`; use your normal AWS CLI
+profile or session. Set `BEDROCK_MODEL_ID` to a model/profile ID that is enabled for your account
+and region. If a model requires cross-region inference, use its supported prefixed profile ID.
+The API returns a safe 502 message when Bedrock is unavailable; the UI keeps the last successful
+diagram visible.
+
 ## One-command local start
 
 ```bash
@@ -66,18 +76,21 @@ real values. Key names:
 | `AWS_REGION` | AWS region for SDK calls / deploy |
 | `TABLE_NAME` | DynamoDB table name (default `bridge-builder`) |
 | `DYNAMODB_ENDPOINT` | Set to `http://localhost:8000` for local; unset for real AWS |
-| `BEDROCK_MODEL_ID` | Bedrock model id for diagram generation (Task 5) |
-| `BEDROCK_REGION` | Region for Bedrock (defaults to `AWS_REGION`) |
+| `BEDROCK_MODEL_ID` | Enabled Bedrock model or inference-profile ID for diagram generation |
+| `BEDROCK_REGION` | Region for Bedrock (defaults to `AWS_REGION`; same as Lambda region after deploy) |
 | `PORT` | Local backend port (default 4000) |
 
 ## Deploy (backend)
 
-Infra-as-code is AWS SAM (`backend/template.yaml`): DynamoDB table, Lambda, HTTP API.
+Infra-as-code is AWS SAM (`backend/template.yaml`): DynamoDB table, Lambda, HTTP API, and the
+Bedrock invocation permission. Task 5 requires both `BedrockModelId` and `BedrockModelArn` at
+deploy time. The ARN must name the exact foundation model or inference profile selected by the
+model ID, so the Lambda cannot invoke unrelated models.
 
 ```bash
 cd backend
 npm run build        # bundles dist/lambda.mjs with esbuild
-sam deploy --guided  # first time; creates the stack + prints the API URL
+sam deploy --guided  # first time; provide BedrockModelId + matching BedrockModelArn
 ```
 
 The frontend is a static build (`npm run build --prefix frontend`) deployable to S3 +

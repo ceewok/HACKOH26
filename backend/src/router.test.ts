@@ -19,9 +19,9 @@ test("unknown route throws 404", async () => {
   );
 });
 
-test("not-yet-implemented route throws 501", async () => {
+test("POST /ai/diagram rejects an invalid request with 400 before invoking Bedrock", async () => {
   await assert.rejects(
-    () => dispatch("POST", "/ai/diagram", {}, { problemId: "x", spec: {} }),
-    (err: unknown) => err instanceof HttpError && err.status === 501,
+    () => dispatch("POST", "/ai/diagram", {}, { problemId: "x" }),
+    (err: unknown) => err instanceof HttpError && err.status === 400 && err.code === "bad_request",
   );
 });

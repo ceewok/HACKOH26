@@ -1,15 +1,20 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import mermaid from "mermaid";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, expect, it, vi } from "vitest";
-import { api, type Problem } from "../api";
+import { api, ApiClientError, type Problem } from "../api";
 import { ProblemPage } from "./ProblemPage";
+
+vi.mock("mermaid", () => ({
+  default: { initialize: vi.fn(), render: vi.fn() },
+}));
 
 vi.mock("../api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../api")>();
   return {
     ...actual,
-    api: { ...actual.api, getProblem: vi.fn() },
+    api: { ...actual.api, getProblem: vi.fn(), generateDiagram: vi.fn() },
   };
 });
 
@@ -36,8 +41,14 @@ function renderProblemPage(id = problem.id) {
   );
 }
 
+function svg(label: string): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg"><text>${label}</text></svg>`;
+}
+
 beforeEach(() => {
   vi.mocked(api.getProblem).mockReset();
+  vi.mocked(api.generateDiagram).mockReset();
+  vi.mocked(mermaid.render).mockReset();
 });
 
 it("renders the full brief, constraints, and interactive hint pills from the detail contract", async () => {
@@ -58,7 +69,8 @@ it("renders the full brief, constraints, and interactive hint pills from the det
 
   expect(processingField).toHaveValue("SQS Queue");
   expect(screen.getByRole("button", { name: "SQS Queue" })).toHaveAttribute("aria-pressed", "true");
-  expect(screen.getByText("Diagram generation connects next.")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Update Blueprint" })).toBeEnabled();
+  expect(screen.getByText("Ready to map your architecture.")).toBeInTheDocument();
   expect(api.getProblem).toHaveBeenCalledWith(problem.id);
 });
 
@@ -97,4 +109,53 @@ it("renders safe fallbacks for a detail response without constraints or hint pil
 
   expect(await screen.findByText("No constraints were provided. Define the trade-offs you want to explore.")).toBeInTheDocument();
   expect(screen.getByText("No suggested building blocks were provided for this problem.")).toBeInTheDocument();
+});
+
+it("generates a Mermaid preview only after the on-demand API request succeeds", async () => {
+  const user = userEvent.setup();
+  vi.mocked(api.getProblem).mockResolvedValue(problem);
+  vi.mocked(api.generateDiagram).mockResolvedValue({ mermaid: "flowchart TD\nClient --> API" });
+  vi.mocked(mermaid.render).mockResolvedValue({ svg: svg("first") } as never);
+  renderProblemPage();
+
+  await screen.findByRole("heading", { name: problem.title });
+  await user.type(screen.getByRole("textbox", { name: /API & Ingestion/ }), "REST API");
+  await user.click(screen.getByRole("button", { name: "Update Blueprint" }));
+
+  await waitFor(() => {
+    expect(api.generateDiagram).toHaveBeenCalledWith(problem.id, {
+      api: "REST API",
+      processing: "",
+      storage: "",
+      bottlenecks: "",
+    });
+  });
+  expect(await screen.findByText("first")).toBeInTheDocument();
+  expect(screen.getByTestId("mermaid-diagram").querySelector("svg")).not.toBeNull();
+});
+
+it("preserves the last rendered diagram when a later AI or Mermaid step fails", async () => {
+  const user = userEvent.setup();
+  vi.mocked(api.getProblem).mockResolvedValue(problem);
+  vi.mocked(api.generateDiagram)
+    .mockResolvedValueOnce({ mermaid: "flowchart TD\nA --> B" })
+    .mockResolvedValueOnce({ mermaid: "flowchart TD\nBroken --> Diagram" })
+    .mockRejectedValueOnce(new ApiClientError(502, "upstream_error", "Diagram service is unavailable."));
+  vi.mocked(mermaid.render)
+    .mockResolvedValueOnce({ svg: svg("first") } as never)
+    .mockRejectedValueOnce(new Error("Mermaid rejected source"));
+  renderProblemPage();
+
+  await screen.findByRole("heading", { name: problem.title });
+  const button = screen.getByRole("button", { name: "Update Blueprint" });
+  await user.click(button);
+  expect(await screen.findByText("first")).toBeInTheDocument();
+
+  await user.click(button);
+  expect(await screen.findByRole("alert")).toHaveTextContent("could not be rendered");
+  expect(screen.getByText("first")).toBeInTheDocument();
+
+  await user.click(button);
+  expect(await screen.findByRole("alert")).toHaveTextContent("Diagram service is unavailable.");
+  expect(screen.getByText("first")).toBeInTheDocument();
 });

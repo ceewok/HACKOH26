@@ -62,13 +62,19 @@ the team. You write little product code — your output is alignment.
   guided Studio. Hint Pills append to the active spec field. The diagram pane accurately says
   Bedrock/Mermaid generation arrives in Task 5; it makes no AI request. Four detail-page tests
   cover success, loading, retry, empty arrays, and pill insertion. QA review is approved.
+- **Task 5 (IMPLEMENTED; live Bedrock smoke pending):** `POST /ai/diagram` validates its
+  request, calls Bedrock Converse on demand, accepts only normalized Mermaid flowchart/graph
+  output, and returns safe 400/502 errors. The Studio lazy-loads Mermaid, renders only
+  Mermaid-produced SVG, and preserves the last good diagram on API/render failure. Seventeen
+  backend plus thirteen frontend tests pass. QA review is approved. Live model invocation needs
+  AWS credentials and access to the configured model/profile.
 
 ### Active contracts
 | Contract | Owner | Consumer | Status | Spec ref |
 |----------|-------|----------|--------|----------|
 | `GET /health` | backend-architect | frontend, qa | DONE (live locally) | spec §4 |
 | `GET /problems`, `GET /problems/{id}` | backend-architect | frontend | Hub + detail page consume contracts; local-Dynamo smoke pending | spec §4 |
-| `POST /ai/diagram` | backend-architect | frontend | defined (Task 5) | spec §4 |
+| `POST /ai/diagram` | backend-architect | frontend | implemented; mocked tests + no-credential 502 smoke pass; live Bedrock pending | spec §4 |
 | `POST /solutions` | backend-architect | frontend | defined (Task 6) | spec §4 |
 | `GET /problems/{id}/solutions`, `GET /solutions/{id}` | backend-architect | frontend | defined (Task 7) | spec §4 |
 | `POST /solutions/{id}/feedback` | backend-architect | frontend | defined (Task 8) | spec §4 |
@@ -84,7 +90,8 @@ the team. You write little product code — your output is alignment.
 2. ~~`feat/task-2-problems-api` — enriched seed catalog + hardened problem endpoints + tests~~ → merged to `main` (0fc4e45); local-Dynamo smoke remains blocked
 3. ~~`feat/task-3-onboarding-hub` — role onboarding + persisted demo identity + Hub dashboard~~ → merged to `main` (c852b5d); local-data smoke remains blocked
 4. ~~`feat/task-4-problem-studio` — full problem brief + guided Studio + Hint Pills~~ → merged to `main` (167950a); local-data smoke remains blocked
-5. (next) Task 5 — Bedrock diagram generation + Mermaid render
+5. `feat/task-5-ai-diagram` — Bedrock Converse diagram endpoint + lazy Mermaid preview (QA approved; live Bedrock smoke blocked)
+6. (next) Task 6 — publish solution
 
 > **Repo note (devops):** This workspace lives under OneDrive, which locks folders during
 > Git's working-tree swaps and can hang an interactive branch `checkout`. Integrate by
@@ -170,4 +177,29 @@ NOTES:    Studio state uses the future request keys `api`, `processing`, `storag
           `bottlenecks`. Hint clicks append their label to the active textarea. Task 5 must add
           the real POST /ai/diagram call and Mermaid renderer; Task 4 deliberately has no AI
           action or generated-looking diagram.
+```
+
+
+### Task 5 — Bedrock diagram generation
+
+```text
+ENDPOINT: POST /ai/diagram
+REQUEST:  { problemId: string,
+            spec: { api: string, processing: string, storage: string, bottlenecks: string } }
+RESPONSE: 200 { mermaid: string }  // normalized Mermaid source starting flowchart or graph
+ERRORS:   400 { error: { code: "bad_request", message } } for missing/malformed problemId or spec;
+          502 { error: { code: "upstream_error", message } } if Bedrock fails or output is unusable
+NOTES:    On demand only. Bedrock Converse uses the configured model/profile and a 700-token
+          cap. Server accepts only a conservative, safe flowchart header/node/edge subset and
+          rejects Markdown/prose/malformed output before the browser. Deployment requires the
+          exact configured Bedrock model/profile ARN and caps Lambda concurrency at two. Live calls require AWS SDK
+          credentials and enabled model access in BEDROCK_REGION; no secrets are committed.
+
+NEEDS:    POST /ai/diagram
+SHAPE:    Request/response above, via api.generateDiagram(problemId, spec).
+BLOCKING: no for UI/tests; live diagram generation is blocked on AWS credentials + model access.
+MOCK:     Tests mock api.generateDiagram and Mermaid rendering at their module seams.
+NOTES:    The Studio disables Update Blueprint while running, lazy-loads Mermaid after click,
+          and replaces the preview only after Mermaid successfully renders. API or render errors
+          leave the last good diagram in place.
 ```

@@ -9,6 +9,9 @@ Parameters:
   BedrockModelId:
     Type: String
     Default: anthropic.claude-3-5-sonnet-20241022-v2:0
+  BedrockModelArn:
+    Type: String
+    Description: ARN of exactly the Bedrock foundation model or inference profile named by BedrockModelId.
 
 Globals:
   Function:
@@ -51,12 +54,13 @@ Resources:
     Properties:
       Handler: lambda.handler
       CodeUri: dist/
-      # dist/lambda.mjs is produced by `npm run build` (esbuild bundle).
+      ReservedConcurrentExecutions: 2
+      # Bound concurrent model invocations for the unauthenticated hackathon demo.
       Environment:
         Variables:
           TABLE_NAME: !Ref TableName
           BEDROCK_MODEL_ID: !Ref BedrockModelId
-          AWS_REGION_OVERRIDE: !Ref AWS::Region
+          BEDROCK_REGION: !Ref AWS::Region
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref TableName
@@ -64,7 +68,7 @@ Resources:
             - Effect: Allow
               Action:
                 - bedrock:InvokeModel
-              Resource: "*"
+              Resource: !Ref BedrockModelArn
       Events:
         ApiProxy:
           Type: HttpApi

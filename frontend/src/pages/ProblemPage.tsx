@@ -99,7 +99,12 @@ export function ProblemPage() {
         )}
       </section>
 
-      <BlueprintStudio hintPills={problem.hintPills} onChange={setSpec} spec={spec} />
+      <BlueprintStudio
+        hintPills={problem.hintPills}
+        onChange={setSpec}
+        problemId={problem.id}
+        spec={spec}
+      />
     </article>
   );
 }

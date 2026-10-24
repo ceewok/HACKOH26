@@ -62,10 +62,26 @@ export interface Problem extends ProblemSummary {
   hintPills: string[];
 }
 
-// --- Endpoints (filled in per task; health available now) ---
+export interface DiagramSpec {
+  api: string;
+  processing: string;
+  storage: string;
+  bottlenecks: string;
+}
+
+export interface DiagramResponse {
+  mermaid: string;
+}
+
+// --- Endpoints (filled in per task) ---
 
 export const api = {
   health: () => request<HealthResponse>("/health"),
   listProblems: () => request<ProblemSummary[]>("/problems"),
   getProblem: (id: string) => request<Problem>(`/problems/${encodeURIComponent(id)}`),
+  generateDiagram: (problemId: string, spec: DiagramSpec) =>
+    request<DiagramResponse>("/ai/diagram", {
+      method: "POST",
+      body: JSON.stringify({ problemId, spec }),
+    }),
 };
