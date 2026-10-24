@@ -69,7 +69,7 @@ the team. You write little product code — your output is alignment.
 
 ### Merge queue
 1. ~~`feat/task-1-skeleton` — repo scaffold + spec + health check~~ → merged to `main` (d89694f)
-2. `feat/task-2-problems-api` — enriched seed catalog + hardened problem endpoints + tests (QA approved; local-Dynamo smoke blocked)
+2. ~~`feat/task-2-problems-api` — enriched seed catalog + hardened problem endpoints + tests~~ → merged to `main` (0fc4e45); local-Dynamo smoke remains blocked
 3. (next) Task 3 — onboarding + Hub dashboard, consuming the published problems contract
 
 > **Repo note (devops):** This workspace lives under OneDrive, which locks folders during
