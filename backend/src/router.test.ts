@@ -25,3 +25,10 @@ test("POST /ai/diagram rejects an invalid request with 400 before invoking Bedro
     (err: unknown) => err instanceof HttpError && err.status === 400 && err.code === "bad_request",
   );
 });
+
+test("POST /solutions rejects an invalid request with 400 before persistence", async () => {
+  await assert.rejects(
+    () => dispatch("POST", "/solutions", {}, { problemId: "x" }),
+    (err: unknown) => err instanceof HttpError && err.status === 400 && err.code === "bad_request",
+  );
+});

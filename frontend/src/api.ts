@@ -73,6 +73,35 @@ export interface DiagramResponse {
   mermaid: string;
 }
 
+export interface Author {
+  role: Role;
+  nickname: string;
+  company?: string;
+}
+
+export interface Solution {
+  id: string;
+  problemId: string;
+  author: Author;
+  spec: DiagramSpec;
+  mermaid: string;
+  parentSolutionId?: string;
+  tweakNote?: string;
+  endorsedByPro: boolean;
+  createdAt: string;
+}
+
+export interface PublishSolutionInput {
+  problemId: string;
+  author: Author;
+  spec: DiagramSpec;
+  mermaid: string;
+}
+
+export interface PublishSolutionResponse {
+  solution: Solution;
+}
+
 // --- Endpoints (filled in per task) ---
 
 export const api = {
@@ -83,5 +112,10 @@ export const api = {
     request<DiagramResponse>("/ai/diagram", {
       method: "POST",
       body: JSON.stringify({ problemId, spec }),
+    }),
+  publishSolution: (input: PublishSolutionInput) =>
+    request<PublishSolutionResponse>("/solutions", {
+      method: "POST",
+      body: JSON.stringify(input),
     }),
 };

@@ -12,11 +12,19 @@ export const emptyBlueprintSpec: BlueprintSpec = {
 
 type BlueprintField = keyof BlueprintSpec;
 
+export interface PublishDraft {
+  spec: BlueprintSpec;
+  mermaid: string;
+}
+
 interface BlueprintStudioProps {
   hintPills: string[];
   problemId: string;
   spec: BlueprintSpec;
+  isPublishing: boolean;
+  publishError: string | null;
   onChange(spec: BlueprintSpec): void;
+  onPublish(draft: PublishDraft): Promise<void>;
 }
 
 interface RenderedDiagram {
@@ -99,7 +107,15 @@ function MermaidDiagram({ svg }: { svg: string }) {
 }
 
 /** Guided spec + on-demand Bedrock/Mermaid preview. */
-export function BlueprintStudio({ hintPills, problemId, spec, onChange }: BlueprintStudioProps) {
+export function BlueprintStudio({
+  hintPills,
+  problemId,
+  spec,
+  isPublishing,
+  publishError,
+  onChange,
+  onPublish,
+}: BlueprintStudioProps) {
   const [activeField, setActiveField] = useState<BlueprintField>("api");
   const [selectedHint, setSelectedHint] = useState<string | null>(null);
   const [diagram, setDiagram] = useState<RenderedDiagram | null>(null);
@@ -122,6 +138,13 @@ export function BlueprintStudio({ hintPills, problemId, spec, onChange }: Bluepr
   function useHint(hint: string) {
     setSelectedHint(hint);
     updateField(activeField, appendHint(spec[activeField], hint));
+  }
+
+  const hasDraft = Object.values(spec).some((value) => value.trim());
+
+  function publishSolution() {
+    if (!diagram || !hasDraft || isPublishing) return;
+    void onPublish({ spec, mermaid: diagram.source });
   }
 
   async function updateBlueprint() {
@@ -235,7 +258,18 @@ export function BlueprintStudio({ hintPills, problemId, spec, onChange }: Bluepr
 
           {isGenerating && <p className="blueprint-preview__status" role="status">Generating your diagram…</p>}
           {diagramError && <p className="blueprint-preview__error" role="alert">{diagramError}</p>}
+          {publishError && <p className="blueprint-preview__error" role="alert">{publishError}</p>}
           {diagram && <p className="blueprint-preview__source">Mermaid source stored for this preview.</p>}
+          <button
+            className="button button--primary"
+            disabled={!diagram || !hasDraft || isPublishing}
+            onClick={publishSolution}
+            type="button"
+          >
+            {isPublishing ? "Publishing…" : "Publish Solution"}
+          </button>
+          {!diagram && <p className="blueprint-preview__source">Generate a blueprint before publishing.</p>}
+          {diagram && !hasDraft && <p className="blueprint-preview__source">Add design notes before publishing.</p>}
         </aside>
       </div>
     </section>

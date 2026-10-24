@@ -4,6 +4,7 @@ import { HealthBadge } from "./components/HealthBadge";
 import { OnboardingModal } from "./components/OnboardingModal";
 import { HubPage } from "./pages/HubPage";
 import { ProblemPage } from "./pages/ProblemPage";
+import { PublishedSolutionPage } from "./pages/PublishedSolutionPage";
 import { clearSession, getSession, type Session } from "./session";
 import "./App.css";
 
@@ -48,7 +49,8 @@ export default function App() {
       <main className="app__main" aria-hidden={!hasSession}>
         <Routes>
           <Route path="/" element={session ? <HubPage session={session} /> : <LandingPage />} />
-          <Route path="/problems/:id" element={session ? <ProblemPage /> : <LandingPage />} />
+          <Route path="/problems/:id" element={session ? <ProblemPage author={session} /> : <LandingPage />} />
+          <Route path="/solutions/:id" element={session ? <PublishedSolutionPage /> : <LandingPage />} />
         </Routes>
       </main>
 

@@ -68,6 +68,12 @@ the team. You write little product code — your output is alignment.
   Mermaid-produced SVG, and preserves the last good diagram on API/render failure. Seventeen
   backend plus thirteen frontend tests pass. QA review is approved. Live model invocation needs
   AWS credentials and access to the configured model/profile.
+- **Task 6 (IMPLEMENTED; real persistence smoke pending):** `POST /solutions` validates a
+  public author, nonblank spec, generated Mermaid, and known problem before writing a
+  server-owned Solution record. The Studio preserves its draft on publish failure and routes a
+  successful 201 response to /solutions/:id using navigation state. Twenty-three backend plus
+  sixteen frontend tests pass. QA review is approved. A real write needs Docker DynamoDB Local
+  or deployed AWS.
 
 ### Active contracts
 | Contract | Owner | Consumer | Status | Spec ref |
@@ -75,7 +81,7 @@ the team. You write little product code — your output is alignment.
 | `GET /health` | backend-architect | frontend, qa | DONE (live locally) | spec §4 |
 | `GET /problems`, `GET /problems/{id}` | backend-architect | frontend | Hub + detail page consume contracts; local-Dynamo smoke pending | spec §4 |
 | `POST /ai/diagram` | backend-architect | frontend | implemented; mocked tests + no-credential 502 smoke pass; live Bedrock pending | spec §4 |
-| `POST /solutions` | backend-architect | frontend | defined (Task 6) | spec §4 |
+| `POST /solutions` | backend-architect | frontend | implemented; UI + handler tests pass; real write smoke pending | spec §4 |
 | `GET /problems/{id}/solutions`, `GET /solutions/{id}` | backend-architect | frontend | defined (Task 7) | spec §4 |
 | `POST /solutions/{id}/feedback` | backend-architect | frontend | defined (Task 8) | spec §4 |
 
@@ -91,7 +97,8 @@ the team. You write little product code — your output is alignment.
 3. ~~`feat/task-3-onboarding-hub` — role onboarding + persisted demo identity + Hub dashboard~~ → merged to `main` (c852b5d); local-data smoke remains blocked
 4. ~~`feat/task-4-problem-studio` — full problem brief + guided Studio + Hint Pills~~ → merged to `main` (167950a); local-data smoke remains blocked
 5. ~~`feat/task-5-ai-diagram` — Bedrock Converse diagram endpoint + lazy Mermaid preview~~ → merged to `main` (b09e149); live Bedrock smoke remains blocked
-6. (next) Task 6 — publish solution
+6. `feat/task-6-publish-solutions` — validated solution publication + confirmation route (QA approved; real persistence smoke blocked)
+7. (next) Task 7 — solution gallery + reloadable detail
 
 > **Repo note (devops):** This workspace lives under OneDrive, which locks folders during
 > Git's working-tree swaps and can hang an interactive branch `checkout`. Integrate by
@@ -202,4 +209,29 @@ MOCK:     Tests mock api.generateDiagram and Mermaid rendering at their module s
 NOTES:    The Studio disables Update Blueprint while running, lazy-loads Mermaid after click,
           and replaces the preview only after Mermaid successfully renders. API or render errors
           leave the last good diagram in place.
+```
+
+
+### Task 6 — Publish solution
+
+```text
+ENDPOINT: POST /solutions
+REQUEST:  { problemId: string,
+            author: { role: "student"|"pro", nickname: string, company?: string },
+            spec: { api: string, processing: string, storage: string, bottlenecks: string },
+            mermaid: string,
+            parentSolutionId?: string, tweakNote?: string }
+RESPONSE: 201 { solution }  // server-created id, createdAt, endorsedByPro: false
+ERRORS:   400 malformed author/spec/Mermaid or all-blank spec; 404 unknown problem;
+          500 { error: { code: "internal_error", message: "Unable to publish solution. Try again shortly." } }
+NOTES:    Server ignores client-controlled id/createdAt/endorsement fields, normalizes student vs
+          pro author identity, and verifies the parent problem before a DynamoDB write.
+
+NEEDS:    POST /solutions
+SHAPE:    Request/response above, via api.publishSolution(...).
+BLOCKING: no for UI/tests; an actual DynamoDB write requires Docker Local or deployed AWS.
+MOCK:     Tests mock api.publishSolution and Mermaid rendering at their module seams.
+NOTES:    Publish is disabled until the user has nonblank spec text and a last-good diagram.
+          A 201 routes to /solutions/:id with the returned solution in navigation state. Task 7
+          owns the reloadable GET /solutions/:id detail, solution gallery, and public discussion.
 ```

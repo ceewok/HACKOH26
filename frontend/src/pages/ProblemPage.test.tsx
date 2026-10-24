@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import mermaid from "mermaid";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, expect, it, vi } from "vitest";
-import { api, ApiClientError, type Problem } from "../api";
+import { api, ApiClientError, type Problem, type Solution } from "../api";
 import { ProblemPage } from "./ProblemPage";
 
 vi.mock("mermaid", () => ({
@@ -14,7 +14,7 @@ vi.mock("../api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../api")>();
   return {
     ...actual,
-    api: { ...actual.api, getProblem: vi.fn(), generateDiagram: vi.fn() },
+    api: { ...actual.api, getProblem: vi.fn(), generateDiagram: vi.fn(), publishSolution: vi.fn() },
   };
 });
 
@@ -35,7 +35,8 @@ function renderProblemPage(id = problem.id) {
       initialEntries={[`/problems/${id}`]}
     >
       <Routes>
-        <Route path="/problems/:id" element={<ProblemPage />} />
+        <Route path="/problems/:id" element={<ProblemPage author={{ role: "student", nickname: "Alex" }} />} />
+        <Route path="/solutions/:id" element={<div>Published destination</div>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -48,6 +49,7 @@ function svg(label: string): string {
 beforeEach(() => {
   vi.mocked(api.getProblem).mockReset();
   vi.mocked(api.generateDiagram).mockReset();
+  vi.mocked(api.publishSolution).mockReset();
   vi.mocked(mermaid.render).mockReset();
 });
 
@@ -70,6 +72,7 @@ it("renders the full brief, constraints, and interactive hint pills from the det
   expect(processingField).toHaveValue("SQS Queue");
   expect(screen.getByRole("button", { name: "SQS Queue" })).toHaveAttribute("aria-pressed", "true");
   expect(screen.getByRole("button", { name: "Update Blueprint" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Publish Solution" })).toBeDisabled();
   expect(screen.getByText("Ready to map your architecture.")).toBeInTheDocument();
   expect(api.getProblem).toHaveBeenCalledWith(problem.id);
 });
@@ -158,4 +161,91 @@ it("preserves the last rendered diagram when a later AI or Mermaid step fails", 
   await user.click(button);
   expect(await screen.findByRole("alert")).toHaveTextContent("Diagram service is unavailable.");
   expect(screen.getByText("first")).toBeInTheDocument();
+});
+
+
+const publishedSolution: Solution = {
+  id: "solution-123",
+  problemId: problem.id,
+  author: { role: "student", nickname: "Alex" },
+  spec: { api: "REST API", processing: "", storage: "", bottlenecks: "" },
+  mermaid: "flowchart TD\nClient --> Api",
+  endorsedByPro: false,
+  createdAt: "2026-10-24T00:00:00.000Z",
+};
+
+it("publishes the rendered blueprint with the session author and routes after 201", async () => {
+  const user = userEvent.setup();
+  vi.mocked(api.getProblem).mockResolvedValue(problem);
+  vi.mocked(api.generateDiagram).mockResolvedValue({ mermaid: publishedSolution.mermaid });
+  vi.mocked(mermaid.render).mockResolvedValue({ svg: svg("published") } as never);
+  vi.mocked(api.publishSolution).mockResolvedValue({ solution: publishedSolution });
+  renderProblemPage();
+
+  await screen.findByRole("heading", { name: problem.title });
+  await user.type(screen.getByRole("textbox", { name: /API & Ingestion/ }), "REST API");
+  await user.click(screen.getByRole("button", { name: "Update Blueprint" }));
+  expect(await screen.findByText("published")).toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: "Publish Solution" }));
+
+  await waitFor(() => {
+    expect(api.publishSolution).toHaveBeenCalledWith({
+      problemId: problem.id,
+      author: { role: "student", nickname: "Alex" },
+      spec: publishedSolution.spec,
+      mermaid: publishedSolution.mermaid,
+    });
+  });
+  expect(await screen.findByText("Published destination")).toBeInTheDocument();
+});
+
+it("keeps the rendered blueprint and draft when publication fails", async () => {
+  const user = userEvent.setup();
+  vi.mocked(api.getProblem).mockResolvedValue(problem);
+  vi.mocked(api.generateDiagram).mockResolvedValue({ mermaid: publishedSolution.mermaid });
+  vi.mocked(mermaid.render).mockResolvedValue({ svg: svg("published") } as never);
+  vi.mocked(api.publishSolution).mockRejectedValue(new Error("Unable to publish solution. Try again shortly."));
+  renderProblemPage();
+
+  await screen.findByRole("heading", { name: problem.title });
+  const field = screen.getByRole("textbox", { name: /API & Ingestion/ });
+  await user.type(field, "REST API");
+  await user.click(screen.getByRole("button", { name: "Update Blueprint" }));
+  expect(await screen.findByText("published")).toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: "Publish Solution" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("Unable to publish solution. Try again shortly.");
+  expect(field).toHaveValue("REST API");
+  expect(screen.getByText("published")).toBeInTheDocument();
+});
+
+
+it("shows Publishing and prevents duplicate submissions while the request is pending", async () => {
+  const user = userEvent.setup();
+  let resolvePublish: (value: { solution: Solution }) => void;
+  vi.mocked(api.getProblem).mockResolvedValue(problem);
+  vi.mocked(api.generateDiagram).mockResolvedValue({ mermaid: publishedSolution.mermaid });
+  vi.mocked(mermaid.render).mockResolvedValue({ svg: svg("published") } as never);
+  vi.mocked(api.publishSolution).mockImplementation(
+    () => new Promise<{ solution: Solution }>((resolve) => {
+      resolvePublish = resolve;
+    }),
+  );
+  renderProblemPage();
+
+  await screen.findByRole("heading", { name: problem.title });
+  await user.type(screen.getByRole("textbox", { name: /API & Ingestion/ }), "REST API");
+  await user.click(screen.getByRole("button", { name: "Update Blueprint" }));
+  expect(await screen.findByText("published")).toBeInTheDocument();
+
+  const publishButton = screen.getByRole("button", { name: "Publish Solution" });
+  await user.click(publishButton);
+
+  expect(screen.getByRole("button", { name: "Publishing…" })).toBeDisabled();
+  expect(api.publishSolution).toHaveBeenCalledTimes(1);
+
+  resolvePublish!({ solution: publishedSolution });
+  expect(await screen.findByText("Published destination")).toBeInTheDocument();
 });

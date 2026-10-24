@@ -1,19 +1,31 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { api, ApiClientError, type Problem } from "../api";
-import { BlueprintStudio, emptyBlueprintSpec, type BlueprintSpec } from "../components/BlueprintStudio";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { api, ApiClientError, type Author, type Problem } from "../api";
+import {
+  BlueprintStudio,
+  emptyBlueprintSpec,
+  type BlueprintSpec,
+  type PublishDraft,
+} from "../components/BlueprintStudio";
 
 type ProblemPageState =
   | { kind: "loading" }
   | { kind: "ready"; problem: Problem }
   | { kind: "error"; code: string; message: string };
 
-/** Full problem brief plus the guided, client-only Studio draft for Task 4. */
-export function ProblemPage() {
+interface ProblemPageProps {
+  author: Author;
+}
+
+/** Full problem brief, guided Studio, diagram generation, and public publication flow. */
+export function ProblemPage({ author }: ProblemPageProps) {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [state, setState] = useState<ProblemPageState>({ kind: "loading" });
   const [requestVersion, setRequestVersion] = useState(0);
   const [spec, setSpec] = useState<BlueprintSpec>(emptyBlueprintSpec);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) {
@@ -38,6 +50,28 @@ export function ProblemPage() {
       active = false;
     };
   }, [id, requestVersion]);
+
+  async function publishSolution(draft: PublishDraft) {
+    if (state.kind !== "ready") return;
+
+    setIsPublishing(true);
+    setPublishError(null);
+    try {
+      const response = await api.publishSolution({
+        problemId: state.problem.id,
+        author,
+        spec: draft.spec,
+        mermaid: draft.mermaid,
+      });
+      navigate(`/solutions/${encodeURIComponent(response.solution.id)}`, {
+        state: { solution: response.solution },
+      });
+    } catch (error) {
+      setPublishError(error instanceof Error ? error.message : "Could not publish your solution.");
+    } finally {
+      setIsPublishing(false);
+    }
+  }
 
   if (state.kind === "loading") {
     return (
@@ -101,8 +135,11 @@ export function ProblemPage() {
 
       <BlueprintStudio
         hintPills={problem.hintPills}
+        isPublishing={isPublishing}
         onChange={setSpec}
+        onPublish={publishSolution}
         problemId={problem.id}
+        publishError={publishError}
         spec={spec}
       />
     </article>

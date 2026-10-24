@@ -6,7 +6,7 @@ import App from "./App";
 import { api, type Problem, type ProblemSummary } from "./api";
 
 vi.mock("./api", () => ({
-  api: { health: vi.fn(), listProblems: vi.fn(), getProblem: vi.fn(), generateDiagram: vi.fn() },
+  api: { health: vi.fn(), listProblems: vi.fn(), getProblem: vi.fn(), generateDiagram: vi.fn(), publishSolution: vi.fn() },
 }));
 
 const weeklyProblem: ProblemSummary = {

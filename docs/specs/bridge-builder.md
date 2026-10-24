@@ -161,7 +161,9 @@ RESPONSE: 201 { solution }   // full Solution object incl. generated id + create
 ERRORS:   400 if required fields missing / spec empty; 404 if problemId unknown;
           500 on storage failure
 AUTH:     none (author in body)
-NOTES:    endorsedByPro defaults false. A tweak sets parentSolutionId + tweakNote.
+NOTES:    endorsedByPro defaults false. A tweak sets parentSolutionId + tweakNote. Task 6 routes
+          the immediate 201 response to a confirmation at /solutions/:id; Task 7 makes that URL
+          reloadable with GET /solutions/:id and the public gallery.
 ```
 
 ```
@@ -208,7 +210,10 @@ NOTES:    If author.role == "pro", set the solution's endorsedByPro = true.
       Converse generation with server/client Mermaid validation and keeps the last rendered
       diagram when generation or rendering fails. **(Task 5: mocked tests pass; live Bedrock
       invocation needs AWS credentials + model access)**
-- [ ] (backend+frontend) `POST /solutions` + publish action.
+- [x] (backend+frontend) `POST /solutions` + publish action. Persists only server-created
+      Solution records after validating author/spec/Mermaid; the Studio routes the immediate 201
+      response to a Task 6 confirmation destination. **(Task 6: mocked tests pass; real
+      DynamoDB write smoke needs Docker or deployed AWS)**
 - [ ] (backend+frontend) gallery + detail (`GET /problems/{id}/solutions`, `GET /solutions/{id}`).
 - [ ] (backend+frontend) feedback + "Endorsed by a Pro" badge.
 - [ ] (frontend+backend) tweak / fork flow.
@@ -262,3 +267,8 @@ NOTES:    If author.role == "pro", set the solution's endorsedByPro = true.
   the last good diagram if the API or renderer fails. Deployment supplies the exact Bedrock
   model/profile ARN and limits the demo Lambda to two concurrent invocations. Live invocation
   remains blocked pending AWS credentials, region/model access, and model-ID verification.
+- _2026-10-24_ (Task 6 implemented) — Publish sends only the current local public identity,
+  nonblank guided spec, and last successfully rendered Mermaid source. The server supplies the
+  solution ID, created time, and initial `endorsedByPro: false`, and confirms the problem exists
+  before writing. The post-201 /solutions/:id destination intentionally uses navigation state;
+  Task 7 owns the reloadable public detail API and gallery.

@@ -4,6 +4,7 @@
 import { BedrockRuntimeClient, ConverseCommand } from "@aws-sdk/client-bedrock-runtime";
 import { config } from "../config.js";
 import { errors, HttpError, ok, type ApiRequest, type ApiResponse } from "../http.js";
+import { normalizeMermaid } from "../mermaid.js";
 import { route } from "../router.js";
 import type { SolutionSpec } from "../types.js";
 
@@ -51,23 +52,7 @@ export function parseDiagramRequest(body: unknown): DiagramRequest {
   return { problemId, spec };
 }
 
-/** Removes a model-added Markdown fence and accepts a conservative valid flowchart subset. */
-const FLOWCHART_HEADER = /^(?:flowchart|graph)\s+(?:TB|TD|BT|RL|LR)$/i;
-const SIMPLE_NODE = String.raw`[A-Za-z][A-Za-z0-9_-]*(?:\[[^\[\]\n<>{}()]+\]|\([^()\n<>{}\[\]]+\)|\{[^{}\n<>()\[\]]+\})?`;
-const SIMPLE_ARROW = String.raw`(?:-->|-\.->|==>)`;
-const SIMPLE_EDGE = new RegExp(
-  String.raw`^${SIMPLE_NODE}\s*${SIMPLE_ARROW}\s*(?:\|[^|\n<>]+\|\s*)?${SIMPLE_NODE}(?:\s*${SIMPLE_ARROW}\s*(?:\|[^|\n<>]+\|\s*)?${SIMPLE_NODE})*$`,
-);
 
-export function normalizeMermaid(value: string): string | null {
-  let source = value.trim();
-  const fenced = source.match(/^```(?:mermaid)?\s*([\s\S]*?)\s*```$/i);
-  if (fenced) source = fenced[1].trim();
-
-  const lines = source.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-  if (lines.length < 2 || !FLOWCHART_HEADER.test(lines[0])) return null;
-  return lines.slice(1).every((line) => SIMPLE_EDGE.test(line)) ? source : null;
-}
 
 function textFromResponse(response: unknown): string {
   if (!isRecord(response) || !isRecord(response.output) || !isRecord(response.output.message)) {
