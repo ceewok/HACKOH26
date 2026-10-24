@@ -86,7 +86,7 @@ CloudFront. Point it at the deployed API with `VITE_API_BASE=<api-url>` at build
 ## Tests
 
 ```bash
-npm test             # backend router/contract tests (node:test)
+npm test             # backend contract tests + frontend browser tests
 npm run typecheck    # typecheck backend + frontend
 ```
 

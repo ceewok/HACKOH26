@@ -198,7 +198,9 @@ NOTES:    If author.role == "pro", set the solution's endorsedByPro = true.
 - [x] (backend) Task 2: seed catalog (one weekly + six persistent problems), idempotent
       `npm run seed`, `GET /problems`, and `GET /problems/{id}`. Contract/unit tests pass;
       real DynamoDB Local seed/API smoke remains blocked until Docker Desktop starts.
-- [ ] (frontend) Onboarding modal + Hub dashboard consuming `GET /problems`.
+- [x] (frontend) Onboarding modal + Hub dashboard consuming `GET /problems`. Stores a local
+      Student/Industry Pro demo identity and routes problem cards to the Task 4 destination.
+      **(Task 3: frontend tests pass; real local-data smoke pending)**
 - [ ] (frontend) Problem page + Studio skeleton with Hint Pills.
 - [ ] (backend+frontend) `POST /ai/diagram` (Bedrock) + Studio render.
 - [ ] (backend+frontend) `POST /solutions` + publish action.
@@ -235,3 +237,10 @@ NOTES:    If author.role == "pro", set the solution's endorsedByPro = true.
   set, which lets DynamoDB Local run without real AWS credentials. Docker Desktop was not
   running during validation, so a real local table/seed/API smoke test is tracked in the
   coordinator blocker board.
+- _2026-10-24_ (Task 3 implemented) — Demo identity stays local: Student/Industry Pro,
+  nickname, and pro company (required only for pros) persist in localStorage with no auth.
+  Persisted values are normalized and invalid Pro records without a nonblank company return to
+  onboarding rather than bypass the form. The Hub consumes only the published `GET /problems`
+  summary shape, selects its weekly hero by `isWeekly`, and gives loading, empty, and retryable
+  error states equal treatment. Problem cards route to a deliberate Task 4 placeholder rather
+  than a broken URL.

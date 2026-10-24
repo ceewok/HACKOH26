@@ -50,12 +50,19 @@ the team. You write little product code — your output is alignment.
   generic 500 storage error. Eleven backend tests, typecheck, and Lambda build pass. QA review
   is approved. Docker Desktop's engine is not running, so a real DynamoDB Local table/seed/API
   run is pending.
+- **Task 3 (IMPLEMENTED; local-data smoke pending):** the SPA opens with an accessible
+  Student/Industry Pro onboarding dialog, stores nickname and required pro company in
+  localStorage, then renders the Hub from `GET /problems`. The Hub selects the weekly problem
+  by `isWeekly`, renders persistent cards, handles loading/empty/error/retry states, and routes
+  cards to the Task 4 problem destination. Seven frontend browser tests cover onboarding,
+  persistence, data states, retry, and navigation. QA review is approved. Real populated-Hub
+  smoke remains coupled to the Docker-blocked Task 2 local data path.
 
 ### Active contracts
 | Contract | Owner | Consumer | Status | Spec ref |
 |----------|-------|----------|--------|----------|
 | `GET /health` | backend-architect | frontend, qa | DONE (live locally) | spec §4 |
-| `GET /problems`, `GET /problems/{id}` | backend-architect | frontend | implemented; contract tests pass; local-Dynamo smoke pending | spec §4 |
+| `GET /problems`, `GET /problems/{id}` | backend-architect | frontend | frontend consumes list; Hub tests pass; local-Dynamo smoke pending | spec §4 |
 | `POST /ai/diagram` | backend-architect | frontend | defined (Task 5) | spec §4 |
 | `POST /solutions` | backend-architect | frontend | defined (Task 6) | spec §4 |
 | `GET /problems/{id}/solutions`, `GET /solutions/{id}` | backend-architect | frontend | defined (Task 7) | spec §4 |
@@ -70,7 +77,8 @@ the team. You write little product code — your output is alignment.
 ### Merge queue
 1. ~~`feat/task-1-skeleton` — repo scaffold + spec + health check~~ → merged to `main` (d89694f)
 2. ~~`feat/task-2-problems-api` — enriched seed catalog + hardened problem endpoints + tests~~ → merged to `main` (0fc4e45); local-Dynamo smoke remains blocked
-3. (next) Task 3 — onboarding + Hub dashboard, consuming the published problems contract
+3. `feat/task-3-onboarding-hub` — role onboarding + persisted demo identity + Hub dashboard (QA approved; local-data smoke blocked)
+4. (next) Task 4 — problem page + Studio skeleton with Hint Pills
 
 > **Repo note (devops):** This workspace lives under OneDrive, which locks folders during
 > Git's working-tree swaps and can hang an interactive branch `checkout`. Integrate by
@@ -123,4 +131,21 @@ REQUEST:  path parameter `id`
 RESPONSE: 200 { id, title, hook, description, constraints[], hintPills[], isWeekly }
 ERRORS:   400 for blank id; 404 for an unknown id; 500 with the generic storage payload above
 NOTES:    Input is trimmed before lookup. Frontend can consume these exact shapes through src/api.ts.
+```
+
+
+## Frontend handoffs
+
+### Task 3 — Onboarding + Hub dashboard
+
+```text
+NEEDS:    GET /problems
+SHAPE:    200 [ { id: string, title: string, hook: string, isWeekly: boolean } ]
+          500 { error: { code: string, message: string } } on storage failure
+BLOCKING: no — the Hub renders a retryable error state while the local DynamoDB seed/API path
+          remains unavailable. A populated local demo still needs Docker Desktop running.
+MOCK:     no production mock. Tests mock api.listProblems() only at the established src/api.ts seam.
+NOTES:    The Hub selects the weekly hero using isWeekly rather than relying on list position,
+          renders nonweekly entries as persistent cards, and routes to /problems/:id. Task 4
+          replaces the deliberate placeholder at that route with problem detail + Studio.
 ```
