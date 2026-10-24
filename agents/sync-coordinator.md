@@ -83,7 +83,7 @@ the team. You write little product code — your output is alignment.
 1. ~~`feat/task-1-skeleton` — repo scaffold + spec + health check~~ → merged to `main` (d89694f)
 2. ~~`feat/task-2-problems-api` — enriched seed catalog + hardened problem endpoints + tests~~ → merged to `main` (0fc4e45); local-Dynamo smoke remains blocked
 3. ~~`feat/task-3-onboarding-hub` — role onboarding + persisted demo identity + Hub dashboard~~ → merged to `main` (c852b5d); local-data smoke remains blocked
-4. `feat/task-4-problem-studio` — full problem brief + guided Studio + Hint Pills (QA approved; local-data smoke blocked)
+4. ~~`feat/task-4-problem-studio` — full problem brief + guided Studio + Hint Pills~~ → merged to `main` (167950a); local-data smoke remains blocked
 5. (next) Task 5 — Bedrock diagram generation + Mermaid render
 
 > **Repo note (devops):** This workspace lives under OneDrive, which locks folders during
