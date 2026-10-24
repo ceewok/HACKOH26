@@ -23,15 +23,28 @@ Full AWS serverless: React + Vite (TS) frontend on S3/CloudFront · API Gateway 
 - [Docker](https://www.docker.com/) (to run DynamoDB Local for local dev)
 - For deploy / Bedrock: AWS credentials, and a Claude model enabled in Amazon Bedrock
 
-### Hosted DynamoDB
+### Hosted DynamoDB (verified demo backend)
 
-The current test environment uses a manually provisioned on-demand `bridge-builder` table in
-`us-east-2`. To use a named AWS CLI/SSO profile locally, set `AWS_PROFILE`,
-`AWS_SDK_LOAD_CONFIG=1`, `AWS_REGION=us-east-2`, and leave `DYNAMODB_ENDPOINT` unset, then run
-`npm run seed`. The hosted table has passed seed, problem/detail, gallery/detail, and publish
-smoke tests. Do not run the current SAM template against the same table name until the table is
-imported into CloudFormation or the deployment uses a different `TableName`; the template would
-otherwise attempt to create a conflicting table.
+The demo runs against a manually provisioned on-demand `bridge-builder` table in `us-east-2`.
+This is the verified backend for the demo — Docker/DynamoDB Local is an optional local
+alternative, not required. To point the backend at the hosted table with a named AWS CLI/SSO
+profile, set these (no `DYNAMODB_ENDPOINT`), then seed:
+
+```powershell
+$env:AWS_PROFILE = "isb"          # your profile with access to the table
+$env:AWS_SDK_LOAD_CONFIG = "1"
+$env:AWS_REGION = "us-east-2"
+$env:TABLE_NAME = "bridge-builder"
+Remove-Item Env:DYNAMODB_ENDPOINT -ErrorAction SilentlyContinue
+npm run seed --prefix backend     # upserts 7 problems + 4 public solutions (incl. a Community Tweak)
+npm run dev                       # backend + frontend
+```
+
+The hosted table has passed seed, problem/detail, gallery/detail, publish, feedback/endorsement,
+and the full Task 9 tweak flow (seeded + live `POST /solutions` tweak linked to its parent) smoke
+tests. Do not run the current SAM template against the same table name until the table is imported
+into CloudFormation or the deployment uses a different `TableName`; the template would otherwise
+attempt to create a conflicting table.
 
 ### Bedrock diagram generation
 
@@ -82,9 +95,32 @@ entry unless it should disappear from the Hub.
 ### Demo blueprints
 
 `backend/seed/solutions.json` provides public student and industry example blueprints so the
-first gallery is not empty. `npm run seed` upserts these fixed solution IDs; it does not remove
-solutions published by users. Keep every example's Mermaid source within the documented
+first gallery is not empty. It includes `seed-office-hours-tweak` — a pro-endorsed Community
+Tweak of the seeded student office-hours blueprint — so the tweak list and gallery tweak counts
+are populated before anyone forks a design. `npm run seed` upserts these fixed solution IDs; it
+does not remove solutions published by users. A seeded tweak entry may carry optional
+`parentSolutionId` + `tweakNote`. Keep every example's Mermaid source within the documented
 flowchart subset.
+
+## 3-minute pitch flow (demo script)
+
+Seed the hosted table and start the app (above), then walk the full ladder:
+
+1. **Onboard** — pick Industry Pro or Student, enter a nickname (pros add a company). The header
+   badge reads **Connected**.
+2. **Hub** — the Weekly Challenge (Live Industry Office Hours) sits above the persistent problem
+   grid. Open the weekly challenge.
+3. **Studio** — read the brief + constraints, fill a couple of guided-spec fields (click a Hint
+   Pill to drop a building block into the active field), then **Update Blueprint** to generate a
+   Bedrock diagram (Nova) rendered as Mermaid.
+4. **Publish** — Publish Solution; you land on the public solution page.
+5. **Gallery** — back on the problem, browse Published Blueprints and filter All / Industry Pros /
+   Students. The seeded student office-hours blueprint shows **1 community tweak**.
+6. **Feedback + endorse** — open a solution, leave feedback. A Pro's feedback lights the
+   **Endorsed by a Pro** badge instantly.
+7. **Tweak** — on someone's solution click **Tweak This Design**: the Studio opens pre-filled with
+   their spec + diagram. Swap a component, add a one-line "why I tweaked this" note, Publish Tweak.
+   The fork appears under **Community Tweaks** on the original, linked back to its parent.
 
 ## Environment
 

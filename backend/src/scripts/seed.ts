@@ -133,12 +133,25 @@ export function validateSeedSolutions(value: unknown): Solution[] {
     if (Number.isNaN(Date.parse(createdAt))) throw new Error(`solutions[${index}].createdAt must be ISO-compatible`);
     if (typeof solution.endorsedByPro !== "boolean") throw new Error(`solutions[${index}].endorsedByPro must be a boolean`);
 
+    // A seeded tweak links to its parent so the demo gallery/detail shows a
+    // populated "Community Tweaks" list before any visitor forks a design.
+    const parentSolutionId =
+      solution.parentSolutionId === undefined
+        ? undefined
+        : requiredText(solution.parentSolutionId, `solutions[${index}].parentSolutionId`);
+    const tweakNote =
+      solution.tweakNote === undefined
+        ? undefined
+        : requiredText(solution.tweakNote, `solutions[${index}].tweakNote`);
+
     return {
       id,
       problemId: requiredText(solution.problemId, `solutions[${index}].problemId`),
       author: validateAuthor(solution.author, `solutions[${index}].author`),
       spec: validateSpec(solution.spec, `solutions[${index}].spec`),
       mermaid,
+      ...(parentSolutionId ? { parentSolutionId } : {}),
+      ...(tweakNote ? { tweakNote } : {}),
       endorsedByPro: solution.endorsedByPro,
       createdAt,
     };

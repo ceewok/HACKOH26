@@ -5,7 +5,7 @@
 > sync-coordinator status board (§7). Start new work from the orchestration rules
 > in `../../master.md`.
 
-- **Status:** in progress
+- **Status:** complete — all ten tasks implemented; full flow verified against hosted DynamoDB
 - **Owner(s):** multi-agent (backend-architect, frontend-disciplinarian, sync-coordinator, devops-engineer, qa-reviewer)
 - **Last updated:** 2026-10-24
 
@@ -161,9 +161,11 @@ RESPONSE: 201 { solution }   // full Solution object incl. generated id + create
 ERRORS:   400 if required fields missing / spec empty; 404 if problemId unknown;
           500 on storage failure
 AUTH:     none (author in body)
-NOTES:    endorsedByPro defaults false. A tweak sets parentSolutionId + tweakNote. Task 6 routes
-          the immediate 201 response to a confirmation at /solutions/:id; Task 7 makes that URL
-          reloadable with GET /solutions/:id and the public gallery.
+NOTES:    endorsedByPro defaults false. A tweak (Task 9) sets parentSolutionId + tweakNote; both
+          are trimmed and, if present, must be non-blank. The server owns the new id, so a tweak
+          is a normal Solution with a parent link. Task 6 routes the immediate 201 response to a
+          confirmation at /solutions/:id; Task 7 makes that URL reloadable with GET /solutions/:id
+          and the public gallery, and lists a parent's children as Community Tweaks.
 ```
 
 ```
@@ -224,8 +226,17 @@ NOTES:    If author.role == "pro", set the solution's endorsedByPro = true.
       stores public feedback; a pro's feedback sets `endorsedByPro` and the detail page shows the
       badge immediately. **(Task 8: mocked tests pass; hosted DynamoDB feedback + endorsement
       smoke passed in us-east-2)**
-- [ ] (frontend+backend) tweak / fork flow.
-- [ ] (qa+devops) end-to-end polish + demo hardening.
+- [x] (frontend+backend) tweak / fork flow. "Tweak This Design" on a solution opens the Studio
+      pre-filled with the parent's four spec fields + diagram; publish threads `parentSolutionId`
+      + a required `tweakNote` through `POST /solutions`. The parent solution page shows a public
+      "Community Tweaks" list linking to each tweak. **(Task 9: 29 frontend + 40 backend tests
+      pass; live tweak publish + parent linkage verified against hosted DynamoDB)**
+- [x] (qa+devops) end-to-end polish + demo hardening. Full path wired
+      (onboard → hub → problem → studio → diagram → publish → gallery → feedback/endorse → tweak)
+      with loading/empty/error states on every view; seed adds an endorsed Community Tweak so the
+      demo gallery/detail is never empty. Builds (Lambda bundle + frontend), typecheck, and the
+      full suite are green, and the happy-path read + publish flow passed live against the hosted
+      `bridge-builder` table in us-east-2. **(Task 10)**
 
 ## 6. Notes / Decisions log
 
@@ -308,3 +319,32 @@ NOTES:    If author.role == "pro", set the solution's endorsedByPro = true.
   passed. The active Haiku inference profile is visible but invocation is blocked by required AWS
   Marketplace subscription permissions. The table is outside the current SAM stack; a future SAM
   deployment must import it or choose a different table name.
+- _2026-10-24_ (Task 9 implemented) — The tweak/fork flow is a frontend feature over the existing
+  contract: `POST /solutions` already accepted `parentSolutionId` + `tweakNote` (Task 6), and
+  `GET /solutions/{id}` already returns a solution's direct `tweaks` (Task 7). "Tweak This Design"
+  on the solution page navigates to the parent problem's Studio, carrying the parent's spec,
+  diagram, id, and author in React Router navigation state. The Studio enters a "Tweak Studio"
+  mode: it pre-fills the four spec fields, pre-renders the parent diagram as the starting preview
+  (so the fork is publishable after an edit without re-generating), and requires a one-line
+  "why I tweaked this" note before Publish Tweak is enabled. Publish threads `parentSolutionId` +
+  `tweakNote`; the server still owns the new id, so a tweak is a normal Solution with a parent
+  link. The parent solution page renders a public "Community Tweaks" list linking to each child,
+  and a tweak shows a "Tweak of another design" link back to its origin. The seed loader was
+  extended to carry optional `parentSolutionId`/`tweakNote` so the gallery ships one seeded,
+  pro-endorsed Community Tweak.
+- _2026-10-24_ (Task 10 — polish + demo hardening) — Walked the full path
+  (onboard → hub → problem → studio → diagram → publish → gallery → feedback/endorse → tweak) and
+  confirmed every view has explicit loading, empty, and retryable-error states and no dead-end
+  routes. Addressed "Solve the Empty Room": the gallery seeds four public blueprints across two
+  problems, including `seed-office-hours-tweak` — a pro-endorsed Community Tweak of the seeded
+  student office-hours design — so the tweak list and a non-zero gallery tweak count are populated
+  before any visitor acts. Verified the clean-redeploy build steps: the Lambda esbuild bundle and
+  the Vite production build both succeed (Mermaid stays lazy-loaded in its own chunks), typecheck
+  is clean, and the full suite (40 backend + 29 frontend = 69 tests) passes. Ran a real end-to-end
+  smoke against the hosted `bridge-builder` table in us-east-2: seeded the catalog + solutions,
+  read problems/gallery/detail, confirmed the seeded tweak links to its parent and bumps the
+  parent's tweak count, then published a live tweak through `POST /solutions`, saw it appear on the
+  parent, and deleted the throwaway record to keep demo data clean. Docker/DynamoDB Local remains
+  an untested optional local path; the hosted table is the verified demo backend. Bedrock diagram
+  generation stays live on Nova (`us.amazon.nova-micro-v1:0`); Claude profiles still need a
+  Marketplace subscription for the `isb` role and fall back to a safe 502.

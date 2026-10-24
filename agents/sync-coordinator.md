@@ -89,6 +89,26 @@ the team. You write little product code — your output is alignment.
   onboard before commenting. Verified live in us-east-2: student feedback stayed unendorsed, pro
   feedback endorsed the solution, and blank-text/unknown-solution/pro-without-company returned
   400/404/400. 37 backend + 24 frontend tests pass; both builds green.
+- **Task 9 (IMPLEMENTED; hosted DynamoDB smoke PASSED):** the tweak/fork flow rides the existing
+  contract — `POST /solutions` already took `parentSolutionId` + `tweakNote`, and
+  `GET /solutions/{id}` already returned a solution's direct `tweaks`. "Tweak This Design" on the
+  solution page opens the parent problem's Studio in "Tweak Studio" mode, pre-filling the four
+  spec fields and pre-rendering the parent diagram, and requires a one-line why-note before
+  Publish Tweak is enabled. Publish threads `parentSolutionId` + `tweakNote`; the parent page
+  shows a public "Community Tweaks" list linking to each child, and a tweak links back to its
+  origin. The seed loader now carries optional `parentSolutionId`/`tweakNote` and ships one
+  pro-endorsed seeded Community Tweak. Verified live in us-east-2: seeded tweak links to its
+  parent and bumps the parent's tweak count to 1; a live `POST /solutions` tweak appeared on the
+  parent, then was cleaned up. 40 backend + 29 frontend tests pass; both builds green.
+- **Task 10 (DONE; full demo path verified against hosted DynamoDB):** the complete path
+  (onboard → hub → problem → studio → diagram → publish → gallery → feedback/endorse → tweak) runs
+  with no dead-end routes and explicit loading/empty/error states on every view. The gallery seeds
+  four public blueprints across two problems — including the endorsed Community Tweak — so the demo
+  never opens an empty room. Clean-redeploy build steps verified: the Lambda esbuild bundle and the
+  Vite production build both succeed (Mermaid lazy-loaded), typecheck is clean, and the full suite
+  (69 tests) passes. End-to-end hosted smoke covered seed, problem/gallery/detail reads, seeded
+  tweak linkage, and a live tweak publish + parent linkage. Bedrock stays live on Nova; Claude is
+  still gated by Marketplace access and returns a safe 502.
 
 ### Active contracts
 | Contract | Owner | Consumer | Status | Spec ref |
@@ -96,15 +116,15 @@ the team. You write little product code — your output is alignment.
 | `GET /health` | backend-architect | frontend, qa | DONE (live locally) | spec §4 |
 | `GET /problems`, `GET /problems/{id}` | backend-architect | frontend | Hub + detail page consume contracts; hosted DynamoDB smoke passed | spec §4 |
 | `POST /ai/diagram` | backend-architect | frontend | implemented; hosted Bedrock returns safe 502 pending Marketplace authorization | spec §4 |
-| `POST /solutions` | backend-architect | frontend | implemented; hosted DynamoDB publish/detail smoke passed | spec §4 |
-| `GET /problems/{id}/solutions`, `GET /solutions/{id}` | backend-architect | frontend | implemented; hosted gallery/detail smoke passed | spec §4 |
+| `POST /solutions` (+ tweak: `parentSolutionId`, `tweakNote`) | backend-architect | frontend | implemented; hosted publish + live tweak smoke passed | spec §4 |
+| `GET /problems/{id}/solutions`, `GET /solutions/{id}` | backend-architect | frontend | implemented; hosted gallery/detail + tweak-list smoke passed | spec §4 |
 | `POST /solutions/{id}/feedback` | backend-architect | frontend | implemented; hosted feedback + endorsement smoke passed | spec §4 |
 
 ### Blockers
 | Blocker | Who's blocked | Needs | Owner | Status |
 |---------|---------------|-------|-------|--------|
-| Docker Desktop engine not running | backend, qa (optional local DynamoDB workflow) | start Docker Desktop, then run `npm run db:setup`, `npm run seed`, and the local API smoke | user / devops | optional — hosted DynamoDB smoke passed |
-| Bedrock Claude Marketplace access | backend (Claude profiles only) | account admin to enable Claude Marketplace subscription for the `isb` role | AWS account administrator | open — Nova works; Claude profiles still return safe 502 |
+| Docker not installed locally | none for the demo | start Docker, then `npm run db:setup`, `npm run seed`, local API smoke | user / devops | optional — the hosted `bridge-builder` table is the verified demo backend; full hosted smoke passed |
+| Bedrock Claude Marketplace access | backend (Claude profiles only) | account admin to enable Claude Marketplace subscription for the `isb` role | AWS account administrator | open — Nova works; set `BEDROCK_MODEL_ID=us.amazon.nova-micro-v1:0`. Claude profiles still return safe 502 |
 
 ### Merge queue
 1. ~~`feat/task-1-skeleton` — repo scaffold + spec + health check~~ → merged to `main` (d89694f)
@@ -114,8 +134,9 @@ the team. You write little product code — your output is alignment.
 5. ~~`feat/task-5-ai-diagram` — Bedrock Converse diagram endpoint + lazy Mermaid preview~~ → merged to `main` (b09e149); live Bedrock smoke remains blocked
 6. ~~`feat/task-6-publish-solutions` — validated solution publication + confirmation route~~ → merged to `main` (0a89d2e); real persistence smoke remains blocked
 7. ~~`feat/task-7-gallery-detail` — public gallery + reloadable detail + demo blueprints~~ → merged to `main` (5b72a2f); real read smoke remains blocked
-8. ~~`feat/task-8-feedback-endorsement` — public feedback + pro endorsement badge~~ → pending fast-forward to `main`; hosted feedback/endorsement smoke passed
-9. (next) Task 9 — tweak / fork flow
+8. ~~`feat/task-8-feedback-endorsement` — public feedback + pro endorsement badge~~ → merged to `main`; hosted feedback/endorsement smoke passed
+9. ~~`feat/task-9-tweak-fork` — "Tweak This Design" pre-filled Studio + Community Tweaks list + seeded tweak~~ → pending fast-forward to `main`; hosted live-tweak smoke passed
+10. ~~`feat/task-10-demo-hardening` — full-path polish, empty/loading/error states, seed richness, docs~~ → pending fast-forward to `main`; full hosted happy-path smoke passed
 
 > **Repo note (devops):** This workspace lives under OneDrive, which locks folders during
 > Git's working-tree swaps and can hang an interactive branch `checkout`. Integrate by
@@ -299,4 +320,25 @@ NOTES:    The composer sends the local session identity, disables submit while p
           blank text, keeps the draft on failure, and on success appends the comment and updates
           the "Endorsed by a Pro" badge from the response without a reload. Anonymous visitors
           see a prompt to onboard instead of the form.
+```
+
+
+### Task 9 — Tweak / fork flow
+
+```text
+REUSES:   POST /solutions (parentSolutionId + tweakNote) and GET /solutions/{id} (tweaks[]).
+          No new endpoint — Task 9 is a frontend feature over the Task 6/7 contract.
+FLOW:     Solution page "Tweak This Design" -> navigate to /problems/:parentProblemId with
+          React Router state { tweak: { parentSolutionId, parentAuthor, spec, mermaid } }.
+          ProblemPage reads that state, pre-fills the Studio, and renders "Tweak Studio" mode.
+          Publish calls api.publishSolution with parentSolutionId + the required tweakNote.
+BLOCKING: no — hosted DynamoDB live-tweak publish + parent-linkage smoke passed in us-east-2.
+MOCK:     ProblemPage/solution-page tests mock the api seam + Mermaid; a navigation probe asserts
+          the tweak seed. A backend test asserts a persisted tweak carries parentSolutionId +
+          trimmed tweakNote and rejects a blank one.
+NOTES:    The Tweak Studio pre-renders the parent diagram so the fork is publishable right after an
+          edit; Publish Tweak stays disabled until there is a diagram, nonblank spec, and a
+          why-note. The parent page lists children as public Community Tweaks; a child links back
+          to its origin. Seed ships one pro-endorsed Community Tweak (seed-office-hours-tweak) so
+          the demo list is never empty.
 ```

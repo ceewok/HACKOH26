@@ -40,5 +40,21 @@
     "mermaid": "flowchart TD\nCreator[StudentCreator] --> Api[RESTApi]\nApi --> Demo[DynamoDB]\nApi --> Queue[SQS]\nQueue --> Matcher[MatchLambda]\nMatcher --> Reviewer[PeerReviewer]",
     "endorsedByPro": false,
     "createdAt": "2026-10-22T16:45:00.000Z"
+  },
+  {
+    "id": "seed-office-hours-tweak",
+    "problemId": "weekly-live-office-hours",
+    "parentSolutionId": "seed-office-hours-student",
+    "tweakNote": "Swapped DynamoDB Streams fan-out for Redis Pub/Sub to cut late-joiner latency under load.",
+    "author": { "role": "pro", "nickname": "LatencyHawk", "company": "99P Labs" },
+    "spec": {
+      "api": "Same WebSocket join/question path, but the gateway also publishes a lightweight presence ping so the connection registry stays accurate for fan-out.",
+      "processing": "The session Lambda now writes queue changes once and publishes them through Redis Pub/Sub. Each connected node receives the delta and pushes it to its own sockets, so a 500-student session fans out without re-reading DynamoDB.",
+      "storage": "DynamoDB remains the source of truth for session state and recaps; Redis holds only the ephemeral live channel. S3 still stores the durable recap.",
+      "bottlenecks": "Redis replaces the stream poll so a late joiner gets the current state in one cached read. If Redis drops, the system falls back to the DynamoDB snapshot rather than losing the session."
+    },
+    "mermaid": "flowchart TD\nStudent[Student] --> Gateway[WebSocketGateway]\nGateway --> Session[SessionLambda]\nSession --> Queue[DynamoDB]\nSession --> PubSub[RedisPubSub]\nPubSub --> Gateway\nSession --> Recap[S3]",
+    "endorsedByPro": true,
+    "createdAt": "2026-10-23T09:15:00.000Z"
   }
 ]

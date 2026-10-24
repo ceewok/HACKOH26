@@ -105,11 +105,24 @@ test("replacing the weekly challenge retires the old seeded record", async () =>
 test("the seed gallery includes public student and industry blueprints", async () => {
   const solutions = await loadSeedSolutions();
 
-  assert.equal(solutions.length, 3);
+  assert.equal(solutions.length, 4);
   assert.ok(solutions.some((solution) => solution.author.role === "student"));
   assert.ok(solutions.some((solution) => solution.author.role === "pro"));
   assert.equal(new Set(solutions.map((solution) => solution.id)).size, solutions.length);
   assert.ok(solutions.every((solution) => solution.mermaid.startsWith("flowchart TD")));
+});
+
+test("the seed gallery includes a public community tweak linked to its parent", async () => {
+  const solutions = await loadSeedSolutions();
+
+  const tweak = solutions.find((solution) => solution.parentSolutionId);
+  assert.ok(tweak, "a seeded tweak populates the demo Community Tweaks list");
+  assert.ok(tweak.tweakNote && tweak.tweakNote.length > 0, "the tweak carries a why-note");
+  // Its parent must also be seeded so the gallery shows a non-zero tweak count.
+  assert.ok(
+    solutions.some((solution) => solution.id === tweak.parentSolutionId),
+    "the tweak's parent is present in the seeded gallery",
+  );
 });
 
 test("re-seeding gallery examples upserts fixed solution ids", async () => {
