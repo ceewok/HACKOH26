@@ -1,0 +1,163 @@
+[
+  {
+    "id": "weekly-live-office-hours",
+    "isWeekly": true,
+    "title": "Weekly Challenge: Live Industry Office Hours",
+    "hook": "Students drop into a mentor's 30-minute office hours. Design the system that runs it live.",
+    "description": "This week's challenge: design the backend for live industry office hours. A mentor opens a 30-minute slot; any number of students can join, raise a hand, ask questions in a shared queue, and watch answers in real time. When the slot ends, a recap of questions and answers is saved to the mentor's and students' records. Respect everyone's time: joining should take seconds, and a student who arrives late should instantly see the current state.",
+    "constraints": [
+      "Up to 500 students may join a single session; about 50 sessions can run across the platform.",
+      "Question queue and answers must update in near real time, under two seconds.",
+      "A late joiner must load the current queue and answered questions on connect.",
+      "Recaps persist after a session ends; sessions are ephemeral but recaps are durable."
+    ],
+    "hintPills": [
+      "WebSockets (API Gateway)",
+      "DynamoDB",
+      "DynamoDB Streams",
+      "Redis Pub/Sub",
+      "EventBridge",
+      "SQS Queue",
+      "S3 (recap storage)",
+      "Connection registry"
+    ]
+  },
+  {
+    "id": "peer-demo-feedback",
+    "isWeekly": false,
+    "title": "Peer Demo Feedback in Under a Minute",
+    "hook": "A student posts a two-minute demo. Peers leave quick, structured feedback. Design the pipeline.",
+    "description": "Design a system where students post short project demos, a video link plus a blurb, and peers leave structured feedback in under a minute: a few tags and one sentence. The feature must solve the empty room: a brand-new demo should still surface to a few relevant peers so it does not sit with zero responses. Feedback becomes part of the author's visible record.",
+    "constraints": [
+      "Submitting feedback should take a peer under 60 seconds.",
+      "A new demo must be routed to at least a few potential reviewers automatically.",
+      "Feedback is public and attributed; it aggregates onto the author's profile.",
+      "Spam or low-effort feedback should be cheap to filter later, so keep the feedback shape structured."
+    ],
+    "hintPills": [
+      "REST API (API Gateway)",
+      "DynamoDB",
+      "SQS Queue",
+      "EventBridge",
+      "Lambda fan-out",
+      "S3 (video thumbnails)",
+      "Notification service",
+      "Simple ranking function"
+    ]
+  },
+  {
+    "id": "cross-major-team-formation",
+    "isWeekly": false,
+    "title": "Form a Cross-Major Build Team",
+    "hook": "Students have different skills, schedules, and project interests. Help a new idea find four compatible teammates.",
+    "description": "Design the service behind a team-formation board for four-to-six-week industry projects. A student posts a project idea, the roles or skills still needed, available hours, and a short working-style preference. The platform suggests a small, explainable set of potential teammates across majors. Each student can accept, decline, or save a match without exposing private contact information until both sides opt in.",
+    "constraints": [
+      "A student should see useful suggestions within a few seconds of posting or updating an idea.",
+      "The same popular students must not be notified by every project at once.",
+      "Suggestions must explain why the match is relevant using only the profile fields the student chose to share.",
+      "The system must handle a burst of several thousand students browsing ideas during a campus event."
+    ],
+    "hintPills": [
+      "OpenSearch",
+      "DynamoDB",
+      "EventBridge",
+      "SQS Queue",
+      "Step Functions",
+      "Notification preferences",
+      "Matching score",
+      "Rate limiting"
+    ]
+  },
+  {
+    "id": "project-sprint-check-in",
+    "isWeekly": false,
+    "title": "Six-Week Project Sprint Check-In",
+    "hook": "A student team needs one lightweight rhythm for updates, blockers, and mentor visibility without adding meeting overhead.",
+    "description": "Design a weekly check-in system for a student team working with an industry mentor. Each member can post what shipped, what they learned, and any blocker. The mentor gets one concise digest and can spend a few minutes responding where it matters. Teams should see their momentum across the six-week project, while future students can learn from the public retrospective after the team chooses what to share.",
+    "constraints": [
+      "Each student check-in should take under three minutes to submit.",
+      "Mentors receive at most one digest per team each week unless a serious blocker is marked.",
+      "A digest must still send if one teammate forgets to check in by the cutoff.",
+      "Public retrospectives must exclude private drafts and team-only notes."
+    ],
+    "hintPills": [
+      "EventBridge Scheduler",
+      "DynamoDB",
+      "SQS Queue",
+      "SES email digest",
+      "Step Functions",
+      "DynamoDB Streams",
+      "Visibility flags",
+      "Idempotency key"
+    ]
+  },
+  {
+    "id": "mentor-feedback-inbox",
+    "isWeekly": false,
+    "title": "Mentor Feedback Inbox",
+    "hook": "Industry mentors have ten minutes. Route the few feedback requests where their experience has the most value.",
+    "description": "Design an asynchronous feedback inbox for industry mentors. Students can request input on a design decision, attach a short context card, and pick a category such as data, frontend, manufacturing, or product. The system batches low-urgency requests into a small digest, surfaces high-fit requests first, and gives students a clear status without promising an immediate answer. A mentor's public feedback becomes a trustworthy part of the student's learning record.",
+    "constraints": [
+      "A mentor who gives ten minutes should see no more than five focused requests.",
+      "Students need an immediate acknowledgement and a clear status as their request moves through the queue.",
+      "Requests should expire gracefully instead of lingering forever without an answer.",
+      "The same request cannot be sent repeatedly to the same mentor after a refresh or retry."
+    ],
+    "hintPills": [
+      "SQS Queue",
+      "EventBridge Scheduler",
+      "DynamoDB",
+      "Lambda batch worker",
+      "SES notification",
+      "TTL",
+      "Idempotency key",
+      "Preference matching"
+    ]
+  },
+  {
+    "id": "community-learning-library",
+    "isWeekly": false,
+    "title": "Community Learning Library",
+    "hook": "A team solves a problem once. Make its useful notes, diagrams, and lessons easy for the next team to find.",
+    "description": "Design a searchable library of public project artifacts: architecture diagrams, retrospectives, useful links, and short notes about what a team learned. Students should be able to search by topic, skill, or industry area and discover related artifacts before starting a new challenge. The system must keep drafts private until an author publishes, track which source a user found helpful, and avoid making a single popular resource slow for everyone.",
+    "constraints": [
+      "Search should return a useful first page in under one second for common topics.",
+      "Authors can publish a revision without breaking links shared by other students.",
+      "Drafts and private team notes must never appear in public search results.",
+      "A popular artifact may receive thousands of reads during a workshop."
+    ],
+    "hintPills": [
+      "S3",
+      "CloudFront",
+      "OpenSearch",
+      "DynamoDB",
+      "Versioned objects",
+      "Access control metadata",
+      "Cache invalidation",
+      "Analytics events"
+    ]
+  },
+  {
+    "id": "campus-challenge-registration",
+    "isWeekly": false,
+    "title": "Campus Challenge Registration Rush",
+    "hook": "A one-day industry challenge has limited seats. Students should get a fair, clear answer when registration opens at noon.",
+    "description": "Design registration for a short, mentor-led campus challenge with 200 seats. At noon, thousands of students may click Join at the same moment. The platform must reserve seats fairly, show a waitlist position, release abandoned reservations, and send participants a reminder before the event. The goal is a small first step into the community, not a recruiting funnel.",
+    "constraints": [
+      "At least 5,000 registration attempts may arrive in the first minute.",
+      "No more than 200 confirmed seats can be issued, even with retries or double-clicks.",
+      "A student must receive a clear confirmation or waitlist result within a few seconds.",
+      "Unclaimed reservations expire after 15 minutes and offer the seat to the next waitlisted student."
+    ],
+    "hintPills": [
+      "API Gateway",
+      "Lambda reserved concurrency",
+      "DynamoDB conditional write",
+      "SQS Queue",
+      "EventBridge Scheduler",
+      "TTL",
+      "Idempotency key",
+      "Waitlist worker"
+    ]
+  }
+]

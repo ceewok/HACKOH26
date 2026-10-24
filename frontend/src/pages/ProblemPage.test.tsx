@@ -1,0 +1,260 @@
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import mermaid from "mermaid";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { beforeEach, expect, it, vi } from "vitest";
+import { api, ApiClientError, type Problem, type Solution } from "../api";
+import { ProblemPage } from "./ProblemPage";
+
+vi.mock("mermaid", () => ({
+  default: { initialize: vi.fn(), render: vi.fn() },
+}));
+
+vi.mock("../api", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../api")>();
+  return {
+    ...actual,
+    api: {
+      ...actual.api,
+      getProblem: vi.fn(),
+      generateDiagram: vi.fn(),
+      publishSolution: vi.fn(),
+      listSolutions: vi.fn(),
+      getSolution: vi.fn(),
+    },
+  };
+});
+
+const problem: Problem = {
+  id: "weekly-live-office-hours",
+  title: "Weekly Challenge: Live Industry Office Hours",
+  hook: "Design live office hours.",
+  description: "Students join a short mentor-led session with a real-time question queue.",
+  constraints: ["Updates arrive under two seconds.", "A late joiner sees the current state."],
+  hintPills: ["DynamoDB", "SQS Queue"],
+  isWeekly: true,
+};
+
+function renderProblemPage(id = problem.id) {
+  return render(
+    <MemoryRouter
+      future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      initialEntries={[`/problems/${id}`]}
+    >
+      <Routes>
+        <Route path="/problems/:id" element={<ProblemPage author={{ role: "student", nickname: "Alex" }} />} />
+        <Route path="/solutions/:id" element={<div>Published destination</div>} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+function svg(label: string): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg"><text>${label}</text></svg>`;
+}
+
+beforeEach(() => {
+  vi.mocked(api.getProblem).mockReset();
+  vi.mocked(api.generateDiagram).mockReset();
+  vi.mocked(api.publishSolution).mockReset();
+  vi.mocked(api.listSolutions).mockReset();
+  vi.mocked(api.listSolutions).mockResolvedValue([]);
+  vi.mocked(mermaid.render).mockReset();
+});
+
+it("renders the full brief, constraints, and interactive hint pills from the detail contract", async () => {
+  const user = userEvent.setup();
+  vi.mocked(api.getProblem).mockResolvedValue(problem);
+  renderProblemPage();
+
+  expect(screen.getByRole("status")).toHaveTextContent("Getting the constraints");
+  expect(await screen.findByRole("heading", { name: problem.title })).toBeInTheDocument();
+  expect(screen.getByText(problem.description)).toBeInTheDocument();
+  for (const constraint of problem.constraints) {
+    expect(screen.getByText(constraint)).toBeInTheDocument();
+  }
+
+  const processingField = screen.getByRole("textbox", { name: /Core Processing/ });
+  await user.click(processingField);
+  await user.click(screen.getByRole("button", { name: "SQS Queue" }));
+
+  expect(processingField).toHaveValue("SQS Queue");
+  expect(screen.getByRole("button", { name: "SQS Queue" })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("button", { name: "Update Blueprint" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Publish Solution" })).toBeDisabled();
+  expect(screen.getByText("Ready to map your architecture.")).toBeInTheDocument();
+  expect(api.getProblem).toHaveBeenCalledWith(problem.id);
+});
+
+it("keeps loading state visible until the detail response resolves", async () => {
+  let resolveProblem: (value: Problem) => void;
+  vi.mocked(api.getProblem).mockImplementation(
+    () => new Promise<Problem>((resolve) => {
+      resolveProblem = resolve;
+    }),
+  );
+  renderProblemPage();
+
+  expect(screen.getByRole("status")).toHaveTextContent("Getting the constraints");
+  resolveProblem!(problem);
+
+  expect(await screen.findByRole("heading", { name: problem.title })).toBeInTheDocument();
+});
+
+it("shows a retryable API error and retries through api.getProblem", async () => {
+  const user = userEvent.setup();
+  vi.mocked(api.getProblem)
+    .mockRejectedValueOnce(new Error("Unable to load this problem."))
+    .mockResolvedValueOnce(problem);
+  renderProblemPage();
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("Unable to load this problem.");
+  await user.click(screen.getByRole("button", { name: "Try again" }));
+
+  expect(await screen.findByRole("heading", { name: problem.title })).toBeInTheDocument();
+  expect(api.getProblem).toHaveBeenCalledTimes(2);
+});
+
+it("renders safe fallbacks for a detail response without constraints or hint pills", async () => {
+  vi.mocked(api.getProblem).mockResolvedValue({ ...problem, constraints: [], hintPills: [] });
+  renderProblemPage();
+
+  expect(await screen.findByText("No constraints were provided. Define the trade-offs you want to explore.")).toBeInTheDocument();
+  expect(screen.getByText("No suggested building blocks were provided for this problem.")).toBeInTheDocument();
+});
+
+it("generates a Mermaid preview only after the on-demand API request succeeds", async () => {
+  const user = userEvent.setup();
+  vi.mocked(api.getProblem).mockResolvedValue(problem);
+  vi.mocked(api.generateDiagram).mockResolvedValue({ mermaid: "flowchart TD\nClient --> API" });
+  vi.mocked(mermaid.render).mockResolvedValue({ svg: svg("first") } as never);
+  renderProblemPage();
+
+  await screen.findByRole("heading", { name: problem.title });
+  await user.type(screen.getByRole("textbox", { name: /API & Ingestion/ }), "REST API");
+  await user.click(screen.getByRole("button", { name: "Update Blueprint" }));
+
+  await waitFor(() => {
+    expect(api.generateDiagram).toHaveBeenCalledWith(problem.id, {
+      api: "REST API",
+      processing: "",
+      storage: "",
+      bottlenecks: "",
+    });
+  });
+  expect(await screen.findByText("first")).toBeInTheDocument();
+  expect(screen.getByTestId("mermaid-diagram").querySelector("svg")).not.toBeNull();
+});
+
+it("preserves the last rendered diagram when a later AI or Mermaid step fails", async () => {
+  const user = userEvent.setup();
+  vi.mocked(api.getProblem).mockResolvedValue(problem);
+  vi.mocked(api.generateDiagram)
+    .mockResolvedValueOnce({ mermaid: "flowchart TD\nA --> B" })
+    .mockResolvedValueOnce({ mermaid: "flowchart TD\nBroken --> Diagram" })
+    .mockRejectedValueOnce(new ApiClientError(502, "upstream_error", "Diagram service is unavailable."));
+  vi.mocked(mermaid.render)
+    .mockResolvedValueOnce({ svg: svg("first") } as never)
+    .mockRejectedValueOnce(new Error("Mermaid rejected source"));
+  renderProblemPage();
+
+  await screen.findByRole("heading", { name: problem.title });
+  const button = screen.getByRole("button", { name: "Update Blueprint" });
+  await user.click(button);
+  expect(await screen.findByText("first")).toBeInTheDocument();
+
+  await user.click(button);
+  expect(await screen.findByRole("alert")).toHaveTextContent("could not be rendered");
+  expect(screen.getByText("first")).toBeInTheDocument();
+
+  await user.click(button);
+  expect(await screen.findByRole("alert")).toHaveTextContent("Diagram service is unavailable.");
+  expect(screen.getByText("first")).toBeInTheDocument();
+});
+
+
+const publishedSolution: Solution = {
+  id: "solution-123",
+  problemId: problem.id,
+  author: { role: "student", nickname: "Alex" },
+  spec: { api: "REST API", processing: "", storage: "", bottlenecks: "" },
+  mermaid: "flowchart TD\nClient --> Api",
+  endorsedByPro: false,
+  createdAt: "2026-10-24T00:00:00.000Z",
+};
+
+it("publishes the rendered blueprint with the session author and routes after 201", async () => {
+  const user = userEvent.setup();
+  vi.mocked(api.getProblem).mockResolvedValue(problem);
+  vi.mocked(api.generateDiagram).mockResolvedValue({ mermaid: publishedSolution.mermaid });
+  vi.mocked(mermaid.render).mockResolvedValue({ svg: svg("published") } as never);
+  vi.mocked(api.publishSolution).mockResolvedValue({ solution: publishedSolution });
+  renderProblemPage();
+
+  await screen.findByRole("heading", { name: problem.title });
+  await user.type(screen.getByRole("textbox", { name: /API & Ingestion/ }), "REST API");
+  await user.click(screen.getByRole("button", { name: "Update Blueprint" }));
+  expect(await screen.findByText("published")).toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: "Publish Solution" }));
+
+  await waitFor(() => {
+    expect(api.publishSolution).toHaveBeenCalledWith({
+      problemId: problem.id,
+      author: { role: "student", nickname: "Alex" },
+      spec: publishedSolution.spec,
+      mermaid: publishedSolution.mermaid,
+    });
+  });
+  expect(await screen.findByText("Published destination")).toBeInTheDocument();
+});
+
+it("keeps the rendered blueprint and draft when publication fails", async () => {
+  const user = userEvent.setup();
+  vi.mocked(api.getProblem).mockResolvedValue(problem);
+  vi.mocked(api.generateDiagram).mockResolvedValue({ mermaid: publishedSolution.mermaid });
+  vi.mocked(mermaid.render).mockResolvedValue({ svg: svg("published") } as never);
+  vi.mocked(api.publishSolution).mockRejectedValue(new Error("Unable to publish solution. Try again shortly."));
+  renderProblemPage();
+
+  await screen.findByRole("heading", { name: problem.title });
+  const field = screen.getByRole("textbox", { name: /API & Ingestion/ });
+  await user.type(field, "REST API");
+  await user.click(screen.getByRole("button", { name: "Update Blueprint" }));
+  expect(await screen.findByText("published")).toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: "Publish Solution" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("Unable to publish solution. Try again shortly.");
+  expect(field).toHaveValue("REST API");
+  expect(screen.getByText("published")).toBeInTheDocument();
+});
+
+
+it("shows Publishing and prevents duplicate submissions while the request is pending", async () => {
+  const user = userEvent.setup();
+  let resolvePublish: (value: { solution: Solution }) => void;
+  vi.mocked(api.getProblem).mockResolvedValue(problem);
+  vi.mocked(api.generateDiagram).mockResolvedValue({ mermaid: publishedSolution.mermaid });
+  vi.mocked(mermaid.render).mockResolvedValue({ svg: svg("published") } as never);
+  vi.mocked(api.publishSolution).mockImplementation(
+    () => new Promise<{ solution: Solution }>((resolve) => {
+      resolvePublish = resolve;
+    }),
+  );
+  renderProblemPage();
+
+  await screen.findByRole("heading", { name: problem.title });
+  await user.type(screen.getByRole("textbox", { name: /API & Ingestion/ }), "REST API");
+  await user.click(screen.getByRole("button", { name: "Update Blueprint" }));
+  expect(await screen.findByText("published")).toBeInTheDocument();
+
+  const publishButton = screen.getByRole("button", { name: "Publish Solution" });
+  await user.click(publishButton);
+
+  expect(screen.getByRole("button", { name: "Publishing…" })).toBeDisabled();
+  expect(api.publishSolution).toHaveBeenCalledTimes(1);
+
+  resolvePublish!({ solution: publishedSolution });
+  expect(await screen.findByText("Published destination")).toBeInTheDocument();
+});

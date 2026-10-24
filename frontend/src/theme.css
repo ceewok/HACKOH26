@@ -1,0 +1,78 @@
+/* Shared design tokens — the single source for color, spacing, radius, type.
+   Components reference these vars; no hardcoded values scattered around. */
+:root {
+  --color-bg: #0e1116;
+  --color-surface: #171b22;
+  --color-surface-2: #1f2530;
+  --color-border: #2a313c;
+  --color-text: #e6e9ef;
+  --color-text-muted: #9aa4b2;
+  --color-accent: #4f8cff;
+  --color-accent-weak: #1d2a44;
+  --color-pro: #f0a93b;
+  --color-pro-weak: #3a2c12;
+  --color-danger: #ff6b6b;
+  --color-ok: #43c59e;
+  --color-overlay: rgb(0 0 0 / 68%);
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-8: 48px;
+
+  --radius: 10px;
+  --radius-large: 16px;
+  --radius-pill: 999px;
+
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --maxw: 1100px;
+  --modal-maxw: 480px;
+  --card-minw: 240px;
+  --studio-column-minw: 320px;
+  --studio-field-minh: 136px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font);
+  line-height: 1.5;
+}
+
+a {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}

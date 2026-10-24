@@ -1,0 +1,44 @@
+[
+  {
+    "id": "seed-office-hours-student",
+    "problemId": "weekly-live-office-hours",
+    "author": { "role": "student", "nickname": "QueueCrafter" },
+    "spec": {
+      "api": "API Gateway WebSockets accepts joins, hand raises, and questions. A REST endpoint creates each office-hours session.",
+      "processing": "Lambda validates actions and publishes queue changes to connected students. EventBridge closes the session and starts recap generation.",
+      "storage": "DynamoDB stores session metadata, questions, answers, and active connections. S3 stores a durable recap.",
+      "bottlenecks": "Connection spikes are isolated by session. Writes use conditional updates so two hand raises cannot take the same queue position."
+    },
+    "mermaid": "flowchart TD\nStudent[Student] --> Gateway[WebSocketGateway]\nGateway --> Session[SessionLambda]\nSession --> Queue[DynamoDB]\nSession --> Recap[S3]",
+    "endorsedByPro": false,
+    "createdAt": "2026-10-20T15:30:00.000Z"
+  },
+  {
+    "id": "seed-office-hours-pro",
+    "problemId": "weekly-live-office-hours",
+    "author": { "role": "pro", "nickname": "MorganSystems", "company": "Honda" },
+    "spec": {
+      "api": "Students connect through WebSockets while mentors use a small REST dashboard to start, pause, and answer questions.",
+      "processing": "A session service appends questions to a FIFO queue and broadcasts state snapshots. A scheduled worker closes sessions and emits a recap event.",
+      "storage": "DynamoDB keeps the live session state and answer history. S3 retains session recap artifacts for later learning.",
+      "bottlenecks": "The queue is partitioned by session. A connection registry is pruned on disconnect so fan-out does not repeatedly target stale clients."
+    },
+    "mermaid": "flowchart TD\nMentor[MentorDashboard] --> Api[RESTApi]\nStudent[Student] --> Socket[WebSocketGateway]\nApi --> Service[SessionService]\nSocket --> Service\nService --> Store[DynamoDB]\nService --> Archive[S3]",
+    "endorsedByPro": false,
+    "createdAt": "2026-10-21T14:00:00.000Z"
+  },
+  {
+    "id": "seed-peer-feedback-student",
+    "problemId": "peer-demo-feedback",
+    "author": { "role": "student", "nickname": "FeedbackLoop" },
+    "spec": {
+      "api": "Students submit a demo link and structured feedback through a REST API. The UI receives status updates by polling a lightweight feed.",
+      "processing": "Lambda stores the demo, then sends reviewer-matching work through SQS. A worker chooses a small reviewer set and records invitations.",
+      "storage": "DynamoDB stores demos, feedback tags, reviewer state, and delivery idempotency keys. S3 stores optional thumbnails.",
+      "bottlenecks": "The queue absorbs a workshop burst. Idempotency keys prevent duplicate feedback when a student retries after a weak connection."
+    },
+    "mermaid": "flowchart TD\nCreator[StudentCreator] --> Api[RESTApi]\nApi --> Demo[DynamoDB]\nApi --> Queue[SQS]\nQueue --> Matcher[MatchLambda]\nMatcher --> Reviewer[PeerReviewer]",
+    "endorsedByPro": false,
+    "createdAt": "2026-10-22T16:45:00.000Z"
+  }
+]
