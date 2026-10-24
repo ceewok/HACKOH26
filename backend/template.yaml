@@ -8,7 +8,7 @@ Parameters:
     Default: bridge-builder
   BedrockModelId:
     Type: String
-    Default: anthropic.claude-3-5-sonnet-20241022-v2:0
+    Default: us.anthropic.claude-haiku-4-5-20251001-v1:0
   BedrockModelArn:
     Type: String
     Description: ARN of exactly the Bedrock foundation model or inference profile named by BedrockModelId.

@@ -23,6 +23,16 @@ Full AWS serverless: React + Vite (TS) frontend on S3/CloudFront · API Gateway 
 - [Docker](https://www.docker.com/) (to run DynamoDB Local for local dev)
 - For deploy / Bedrock: AWS credentials, and a Claude model enabled in Amazon Bedrock
 
+### Hosted DynamoDB
+
+The current test environment uses a manually provisioned on-demand `bridge-builder` table in
+`us-east-2`. To use a named AWS CLI/SSO profile locally, set `AWS_PROFILE`,
+`AWS_SDK_LOAD_CONFIG=1`, `AWS_REGION=us-east-2`, and leave `DYNAMODB_ENDPOINT` unset, then run
+`npm run seed`. The hosted table has passed seed, problem/detail, gallery/detail, and publish
+smoke tests. Do not run the current SAM template against the same table name until the table is
+imported into CloudFormation or the deployment uses a different `TableName`; the template would
+otherwise attempt to create a conflicting table.
+
 ### Bedrock diagram generation
 
 `POST /ai/diagram` uses the Bedrock Converse API only when a user clicks **Update Blueprint**.
@@ -31,7 +41,9 @@ inference profile in `BEDROCK_REGION`. Keep credentials outside `.env`; use your
 profile or session. Set `BEDROCK_MODEL_ID` to a model/profile ID that is enabled for your account
 and region. If a model requires cross-region inference, use its supported prefixed profile ID.
 The API returns a safe 502 message when Bedrock is unavailable; the UI keeps the last successful
-diagram visible.
+diagram visible. The verified `isb` credentials work for DynamoDB but cannot invoke the selected
+Claude profile until an account administrator enables its AWS Marketplace subscription or grants
+the required Marketplace subscription actions.
 
 ## One-command local start
 

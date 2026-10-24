@@ -43,13 +43,12 @@ the team. You write little product code — your output is alignment.
   crashing. Frontend builds and its `HealthBadge` calls `/health` via the `/api` proxy and
   shows "Connected." Backend tests (3) + typechecks (backend + frontend) pass; Lambda bundle
   builds via esbuild. One-command local start documented in README.
-- **Task 2 (IMPLEMENTED; local-Dynamo smoke pending):** the catalog now contains one weekly
+- **Task 2 (IMPLEMENTED; AWS DynamoDB smoke passed):** the catalog now contains one weekly
   challenge and six persistent problems. The seed CLI enforces one weekly entry, unique
   kebab-case ids, and non-empty problem fields; it upserts source entries and retires entries
   removed from the authoritative JSON file. `GET /problems` and `GET /problems/{id}` match the contract in unit tests, including 400/404 handling and a safe
   generic 500 storage error. Eleven backend tests, typecheck, and Lambda build pass. QA review
-  is approved. Docker Desktop's engine is not running, so a real DynamoDB Local table/seed/API
-  run is pending.
+  is approved. Hosted DynamoDB seeding and live problem reads passed in us-east-2.
 - **Task 3 (IMPLEMENTED; local-data smoke pending):** the SPA opens with an accessible
   Student/Industry Pro onboarding dialog, stores nickname and required pro company in
   localStorage, then renders the Hub from `GET /problems`. The Hub selects the weekly problem
@@ -84,17 +83,17 @@ the team. You write little product code — your output is alignment.
 | Contract | Owner | Consumer | Status | Spec ref |
 |----------|-------|----------|--------|----------|
 | `GET /health` | backend-architect | frontend, qa | DONE (live locally) | spec §4 |
-| `GET /problems`, `GET /problems/{id}` | backend-architect | frontend | Hub + detail page consume contracts; local-Dynamo smoke pending | spec §4 |
-| `POST /ai/diagram` | backend-architect | frontend | implemented; mocked tests + no-credential 502 smoke pass; live Bedrock pending | spec §4 |
-| `POST /solutions` | backend-architect | frontend | implemented; UI + handler tests pass; real write smoke pending | spec §4 |
-| `GET /problems/{id}/solutions`, `GET /solutions/{id}` | backend-architect | frontend | implemented; gallery/detail tests pass; real DynamoDB read smoke pending | spec §4 |
+| `GET /problems`, `GET /problems/{id}` | backend-architect | frontend | Hub + detail page consume contracts; hosted DynamoDB smoke passed | spec §4 |
+| `POST /ai/diagram` | backend-architect | frontend | implemented; hosted Bedrock returns safe 502 pending Marketplace authorization | spec §4 |
+| `POST /solutions` | backend-architect | frontend | implemented; hosted DynamoDB publish/detail smoke passed | spec §4 |
+| `GET /problems/{id}/solutions`, `GET /solutions/{id}` | backend-architect | frontend | implemented; hosted gallery/detail smoke passed | spec §4 |
 | `POST /solutions/{id}/feedback` | backend-architect | frontend | defined (Task 8) | spec §4 |
 
 ### Blockers
 | Blocker | Who's blocked | Needs | Owner | Status |
 |---------|---------------|-------|-------|--------|
-| Docker Desktop engine not running | backend, qa (real DynamoDB Local seed/API smoke) | start Docker Desktop, then run `npm run db:setup`, `npm run seed`, and the local API smoke | user / devops | open — code/unit validation completed |
-| AWS account + region + Bedrock model access | devops, backend (deploy + `POST /ai/diagram`) | user to confirm AWS creds, region, and that a Claude model is enabled in Bedrock | user / devops | open — local dev proceeds without it |
+| Docker Desktop engine not running | backend, qa (optional local DynamoDB workflow) | start Docker Desktop, then run `npm run db:setup`, `npm run seed`, and the local API smoke | user / devops | optional — hosted DynamoDB smoke passed |
+| Bedrock model subscription/authorization | backend (live `POST /ai/diagram`) | account admin to enable the selected Claude profile or grant Marketplace subscription actions to the `isb` role | AWS account administrator | open — credentials work; Bedrock returns safe 502 |
 
 ### Merge queue
 1. ~~`feat/task-1-skeleton` — repo scaffold + spec + health check~~ → merged to `main` (d89694f)

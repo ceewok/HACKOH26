@@ -282,3 +282,9 @@ NOTES:    If author.role == "pro", set the solution's endorsedByPro = true.
   unknown problems under the published contract and intentionally omits pagination for the small
   hackathon dataset. Three static solution examples seed the gallery without replacing user
   solutions. Task 8 may render feedback but owns writing it.
+- _2026-10-24_ (AWS smoke) — An on-demand `bridge-builder` table and `TypeIndex` GSI were
+  manually provisioned in `us-east-2` under the authenticated `isb` profile. Hosted seeding,
+  problem reads, solution gallery/detail reads, and a real `AWSVerification` publish write all
+  passed. The active Haiku inference profile is visible but invocation is blocked by required AWS
+  Marketplace subscription permissions. The table is outside the current SAM stack; a future SAM
+  deployment must import it or choose a different table name.
