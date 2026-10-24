@@ -21,4 +21,4 @@ Project documentation lives here.
 
 | Spec | Status | Owner |
 |------|--------|-------|
-| _none yet_ | | |
+| [bridge-builder](specs/bridge-builder.md) | in progress | multi-agent |

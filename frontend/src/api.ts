@@ -1,0 +1,71 @@
+// The single backend seam. Every network call goes through here, coding against
+// the contract in docs/specs/bridge-builder.md §4. If a shape is wrong or
+// missing, raise it via the sync-coordinator — do not fake it elsewhere.
+
+const BASE = import.meta.env.VITE_API_BASE ?? "/api";
+
+export interface ApiError {
+  code: string;
+  message: string;
+}
+
+export class ApiClientError extends Error {
+  status: number;
+  code: string;
+  constructor(status: number, code: string, message: string) {
+    super(message);
+    this.status = status;
+    this.code = code;
+  }
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      headers: { "content-type": "application/json" },
+      ...init,
+    });
+  } catch {
+    throw new ApiClientError(0, "network_error", "Could not reach the server.");
+  }
+
+  const text = await res.text();
+  const data = text ? JSON.parse(text) : undefined;
+
+  if (!res.ok) {
+    const err = (data?.error ?? {}) as Partial<ApiError>;
+    throw new ApiClientError(res.status, err.code ?? "error", err.message ?? res.statusText);
+  }
+  return data as T;
+}
+
+// --- Contract types (mirror the backend) ---
+
+export type Role = "student" | "pro";
+
+export interface HealthResponse {
+  status: string;
+  time: string;
+}
+
+export interface ProblemSummary {
+  id: string;
+  title: string;
+  hook: string;
+  isWeekly: boolean;
+}
+
+export interface Problem extends ProblemSummary {
+  description: string;
+  constraints: string[];
+  hintPills: string[];
+}
+
+// --- Endpoints (filled in per task; health available now) ---
+
+export const api = {
+  health: () => request<HealthResponse>("/health"),
+  listProblems: () => request<ProblemSummary[]>("/problems"),
+  getProblem: (id: string) => request<Problem>(`/problems/${encodeURIComponent(id)}`),
+};

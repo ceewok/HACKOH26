@@ -1,0 +1,48 @@
+[
+  {
+    "id": "weekly-live-office-hours",
+    "isWeekly": true,
+    "title": "Weekly Challenge: Live Industry Office Hours",
+    "hook": "Students drop into a mentor's 30-minute office hours. Design the system that runs it live.",
+    "description": "This week's challenge: design the backend for live industry \"office hours.\" A mentor opens a 30-minute slot; any number of students can join, raise a hand, ask questions in a shared queue, and watch answers in real time. When the slot ends, a recap (questions asked + answers) is saved to the mentor's and students' records. Respect everyone's time: joining should take seconds, and a student who arrives late should instantly see the current state.",
+    "constraints": [
+      "Up to 500 students may join a single session; ~50 concurrent across the platform.",
+      "Question queue and answers must update in near real time (< 2s).",
+      "A late joiner must load the full current state (queue + answered) on connect.",
+      "Recap must persist after the session ends; sessions are ephemeral but recaps are durable."
+    ],
+    "hintPills": [
+      "WebSockets (API Gateway)",
+      "DynamoDB",
+      "DynamoDB Streams",
+      "Redis Pub/Sub",
+      "EventBridge",
+      "SQS Queue",
+      "S3 (recap storage)",
+      "Connection registry"
+    ]
+  },
+  {
+    "id": "peer-demo-feedback",
+    "isWeekly": false,
+    "title": "Peer Demo Feedback in Under a Minute",
+    "hook": "A student posts a 2-minute demo. Peers leave quick, structured feedback. Design the pipeline.",
+    "description": "Design a system where students post short project demos (video link + blurb) and peers leave structured feedback in under a minute (a few tags + one sentence). The feature must \"solve the empty room\": a brand-new demo should still surface to a few relevant peers so it doesn't sit with zero responses. Feedback becomes part of the author's visible record.",
+    "constraints": [
+      "Submitting feedback should take a peer under 60 seconds.",
+      "A new demo must be routed to at least a few potential reviewers automatically.",
+      "Feedback is public and attributed; it aggregates onto the author's profile.",
+      "Spam/low-effort feedback should be cheap to filter out later (keep the shape structured)."
+    ],
+    "hintPills": [
+      "REST API (API Gateway)",
+      "DynamoDB",
+      "SQS Queue",
+      "EventBridge",
+      "Lambda fan-out",
+      "S3 (video thumbnails)",
+      "Notification service",
+      "Simple ranking function"
+    ]
+  }
+]

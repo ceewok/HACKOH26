@@ -1,0 +1,92 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.app__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.app__brand {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--color-text);
+}
+.app__brand:hover {
+  text-decoration: none;
+}
+.app__brand-sub {
+  color: var(--color-text-muted);
+  font-weight: 500;
+  font-size: 0.85rem;
+  margin-left: var(--space-2);
+}
+
+.app__main {
+  flex: 1;
+  width: 100%;
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-5);
+}
+
+.app__footer {
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+/* Health badge */
+.health {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  font-size: 0.8rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-2);
+  color: var(--color-text-muted);
+}
+.health__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-text-muted);
+}
+.health--connected .health__dot {
+  background: var(--color-ok);
+}
+.health--connected {
+  color: var(--color-ok);
+}
+.health--offline .health__dot {
+  background: var(--color-danger);
+}
+.health--offline {
+  color: var(--color-danger);
+}
+
+/* Placeholder */
+.placeholder {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-6);
+}
+.placeholder h1 {
+  margin-top: 0;
+}
+.placeholder p {
+  color: var(--color-text-muted);
+  max-width: 60ch;
+}
