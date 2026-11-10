@@ -102,26 +102,6 @@ does not remove solutions published by users. A seeded tweak entry may carry opt
 `parentSolutionId` + `tweakNote`. Keep every example's Mermaid source within the documented
 flowchart subset.
 
-## 3-minute pitch flow (demo script)
-
-Seed the hosted table and start the app (above), then walk the full ladder:
-
-1. **Onboard** — pick Industry Pro or Student, enter a nickname (pros add a company). The header
-   badge reads **Connected**.
-2. **Hub** — the Weekly Challenge (Live Industry Office Hours) sits above the persistent problem
-   grid. Open the weekly challenge.
-3. **Studio** — read the brief + constraints, fill a couple of guided-spec fields (click a Hint
-   Pill to drop a building block into the active field), then **Update Blueprint** to generate a
-   Bedrock diagram (Nova) rendered as Mermaid.
-4. **Publish** — Publish Solution; you land on the public solution page.
-5. **Gallery** — back on the problem, browse Published Blueprints and filter All / Industry Pros /
-   Students. The seeded student office-hours blueprint shows **1 community tweak**.
-6. **Feedback + endorse** — open a solution, leave feedback. A Pro's feedback lights the
-   **Endorsed by a Pro** badge instantly.
-7. **Tweak** — on someone's solution click **Tweak This Design**: the Studio opens pre-filled with
-   their spec + diagram. Swap a component, add a one-line "why I tweaked this" note, Publish Tweak.
-   The fork appears under **Community Tweaks** on the original, linked back to its parent.
-
 ## Environment
 
 Copy `.env.example` to `.env` and fill in as needed. `.env` is gitignored — never commit
