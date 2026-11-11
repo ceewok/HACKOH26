@@ -8,10 +8,6 @@ public and becomes a visible record of growth. The hero feature is a split-scree
 structured guided-spec prompts on the left, a live Mermaid architecture diagram (generated via
 Amazon Bedrock) on the right.
 
-- **Concept & rules:** `master.md` (read first)
-- **Living spec / API contract:** `docs/specs/bridge-builder.md` (single source of truth)
-- **Challenge brief:** `docs/honda_challenge.md`
-
 ## Stack
 
 Full AWS serverless: React + Vite (TS) frontend on S3/CloudFront · API Gateway + Lambda
@@ -39,12 +35,6 @@ Remove-Item Env:DYNAMODB_ENDPOINT -ErrorAction SilentlyContinue
 npm run seed --prefix backend     # upserts 7 problems + 4 public solutions (incl. a Community Tweak)
 npm run dev                       # backend + frontend
 ```
-
-The hosted table has passed seed, problem/detail, gallery/detail, publish, feedback/endorsement,
-and the full Task 9 tweak flow (seeded + live `POST /solutions` tweak linked to its parent) smoke
-tests. Do not run the current SAM template against the same table name until the table is imported
-into CloudFormation or the deployment uses a different `TableName`; the template would otherwise
-attempt to create a conflicting table.
 
 ### Bedrock diagram generation
 
@@ -81,17 +71,6 @@ npm run dev
 - Frontend: http://localhost:5173
 - Backend API: http://localhost:4000 (frontend calls it via the `/api` proxy)
 
-You'll know it works when the header badge reads **Connected**.
-
-### Adding a problem
-
-Drop a new entry into `backend/seed/problems.json` and re-run `npm run seed`. Each entry
-needs a unique lowercase kebab-case `id`, non-empty `title`, `hook`, `description`,
-`constraints`, and `hintPills`. Exactly one entry must have `"isWeekly": true` (the weekly
-challenge). The JSON file is authoritative for the seeded catalog: re-seeding upserts entries
-whose ids remain and retires existing seeded problems omitted from the file. Do not remove an
-entry unless it should disappear from the Hub.
-
 ### Demo blueprints
 
 `backend/seed/solutions.json` provides public student and industry example blueprints so the
@@ -104,8 +83,7 @@ flowchart subset.
 
 ## Environment
 
-Copy `.env.example` to `.env` and fill in as needed. `.env` is gitignored — never commit
-real values. Key names:
+Copy `.env.example` to `.env` and fill in as needed. Key names:
 
 | Key | Purpose |
 |-----|---------|
@@ -119,8 +97,7 @@ real values. Key names:
 ## Deploy (backend)
 
 Infra-as-code is AWS SAM (`backend/template.yaml`): DynamoDB table, Lambda, HTTP API, and the
-Bedrock invocation permission. Task 5 requires both `BedrockModelId` and `BedrockModelArn` at
-deploy time. The ARN must name the exact foundation model or inference profile selected by the
+Bedrock invocation permission. The ARN must name the exact foundation model or inference profile selected by the
 model ID, so the Lambda cannot invoke unrelated models.
 
 ```bash
